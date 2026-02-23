@@ -1,0 +1,13 @@
+{
+  "name": "email-agent-example",
+  "version": "1.0.0",
+  "description": "Example email agent using OpenClaw State Engine",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@openclaw/ts-client": "file:../ts-client"
+  }
+}

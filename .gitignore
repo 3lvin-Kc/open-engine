@@ -1,0 +1,30 @@
+# Build artifacts
+target/
+dist/
+*.db
+*.db-shm
+*.db-wal
+
+# Dependencies
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+server.log
+
+# Environment
+.env
+.env.local
+
+# Test artifacts
+test.db*

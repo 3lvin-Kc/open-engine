@@ -1,0 +1,20 @@
+{
+  "name": "@openclaw/ts-client",
+  "version": "0.1.0",
+  "description": "TypeScript client for OpenClaw State Engine",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": ["openclaw", "state", "engine", "json-rpc"],
+  "license": "MIT",
+  "dependencies": {
+    "json-rpc-2.0": "^1.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

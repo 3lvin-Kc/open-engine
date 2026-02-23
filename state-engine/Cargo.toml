@@ -1,0 +1,71 @@
+[package]
+name = "openclaw-state-engine"
+version = "0.1.0"
+edition = "2021"
+authors = ["OpenClaw Team"]
+description = "Persistent State & Session Management Engine for OpenClaw"
+license = "MIT"
+repository = "https://github.com/openclaw/engine_for_openclaw"
+
+[workspace]
+members = ["."]
+resolver = "2"
+
+[lib]
+name = "openclaw_state_engine"
+path = "src/lib.rs"
+edition = "2021"
+
+[[bin]]
+name = "openclaw-state-engine"
+path = "src/main.rs"
+edition = "2021"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1.35", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+
+# Database
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# UUID for entity IDs
+uuid = { version = "1.6", features = ["v4", "serde"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# JSON-RPC
+jsonrpsee = { version = "0.20", features = ["server", "macros"] }
+
+# Concurrency
+parking_lot = "0.12"
+dashmap = "5.5"
+
+# Async trait support
+async-trait = "0.1"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
+mockall = "0.12"
+
+[features]
+default = []
+development = []

@@ -174,6 +174,38 @@ npm install
 npm start
 ```
 
+## Integrations
+
+### OpenClaw
+
+Drop-in adapter for OpenClaw agents — adds durability to any agent:
+
+```bash
+cd integrations/openclaw
+npm install
+```
+
+```typescript
+import { OpenClawAgent } from './adapter';
+
+const agent = new OpenClawAgent({
+  userId: 'my-agent',
+  engineUrl: 'http://127.0.0.1:3030'
+});
+
+await agent.init();
+
+// Crash-safe, duplicate-safe tool execution
+const result = await agent.execute('send_email', {
+  to: 'user@example.com',
+  subject: 'Hello'
+}, {
+  idempotencyKey: 'welcome-email-001'
+});
+```
+
+→ [Read full docs](integrations/openclaw/README.md)
+
 ## Testing
 
 ### Stress Test Idempotency

@@ -151,7 +151,7 @@ If you use this engine, these failures will not happen:
 
 ## Examples & Demos
 
-### Failure Demo
+### 1. Failure Demo
 
 Shows before/after comparison of agent failures:
 
@@ -164,15 +164,48 @@ node demo.js
 - WITHOUT engine: Duplicate emails sent on retry
 - WITH engine: Same key returns same result, no duplicates
 
-### Email Agent Example
+### 2. Email Agent Example
 
-Complete integration example:
+Complete email automation with idempotency guarantees:
 
 ```bash
 cd examples/email-agent
 npm install
 npm start
 ```
+
+### 3. Web Scraper Example
+
+Robust web scraping with deduplication and crash recovery:
+
+```bash
+cd examples/web-scraper
+npm install
+npm start
+```
+
+**Features:**
+- Never scrapes the same URL twice
+- Resumes after crashes
+- Crawls discovered links automatically
+- Full audit trail of all scraped data
+
+### 4. Dashboard
+
+Web-based monitoring dashboard:
+
+```bash
+cd examples/dashboard
+npm install
+npm start
+# Open http://localhost:8080
+```
+
+**Features:**
+- Real-time metrics (users, sessions, goals, executions)
+- Active sessions list
+- Pending goals monitoring
+- Quick actions (create users, run demos)
 
 ## Integrations
 

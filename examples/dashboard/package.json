@@ -1,0 +1,13 @@
+{
+  "name": "open-engine-dashboard",
+  "version": "1.0.0",
+  "description": "Web dashboard for OpenClaw State Engine",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

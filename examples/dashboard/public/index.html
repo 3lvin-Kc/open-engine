@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw State Engine Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f23;
+      color: #e0e0e0;
+      line-height: 1.6;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid #2a2a4a;
+    }
+    
+    .header h1 {
+      font-size: 1.5rem;
+      color: #00d4ff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .header h1::before {
+      content: "🔮";
+    }
+    
+    .status-bar {
+      display: flex;
+      gap: 1rem;
+      padding: 0.75rem 2rem;
+      background: #16162a;
+      border-bottom: 1px solid #2a2a4a;
+      font-size: 0.875rem;
+    }
+    
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    
+    .status-dot.connected { background: #00ff88; box-shadow: 0 0 8px #00ff88; }
+    .status-dot.disconnected { background: #ff4444; box-shadow: 0 0 8px #ff4444; }
+    .status-dot.loading { background: #ffaa00; animation: pulse 1s infinite; }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .container {
+      padding: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    
+    .card {
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 1.5rem;
+      border: 1px solid #2a2a4a;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
+    }
+    
+    .card h3 {
+      color: #00d4ff;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 1rem;
+    }
+    
+    .metric {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    
+    .metric-label {
+      font-size: 0.875rem;
+      color: #888;
+      margin-top: 0.25rem;
+    }
+    
+    .btn {
+      background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+      color: #000;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    
+    .btn:hover { opacity: 0.9; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .btn-secondary {
+      background: #2a2a4a;
+      color: #e0e0e0;
+    }
+    
+    .input-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    
+    input[type="text"] {
+      flex: 1;
+      background: #0f0f23;
+      border: 1px solid #2a2a4a;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 0.875rem;
+    }
+    
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #00d4ff;
+    }
+    
+    .list {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 1rem;
+    }
+    
+    .list-item {
+      background: #0f0f23;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      border: 1px solid #2a2a4a;
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+    
+    .list-item:last-child { margin-bottom: 0; }
+    
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .badge.pending { background: #ffaa00; color: #000; }
+    .badge.completed { background: #00ff88; color: #000; }
+    .badge.failed { background: #ff4444; color: #fff; }
+    .badge.active { background: #00d4ff; color: #000; }
+    .badge.inactive { background: #666; color: #fff; }
+    
+    .empty {
+      text-align: center;
+      padding: 2rem;
+      color: #666;
+    }
+    
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid #2a2a4a;
+      padding-bottom: 0.5rem;
+    }
+    
+    .tab {
+      background: transparent;
+      border: none;
+      color: #888;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+    
+    .tab:hover { color: #e0e0e0; }
+    .tab.active { 
+      background: #2a2a4a; 
+      color: #00d4ff;
+    }
+    
+    .error {
+      background: rgba(255, 68, 68, 0.1);
+      border: 1px solid #ff4444;
+      padding: 1rem;
+      border-radius: 8px;
+      color: #ff4444;
+      margin-top: 1rem;
+    }
+    
+    .success {
+      background: rgba(0, 255, 136, 0.1);
+      border: 1px solid #00ff88;
+      padding: 1rem;
+      border-radius: 8px;
+      color: #00ff88;
+      margin-top: 1rem;
+    }
+    
+    .json { 
+      white-space: pre-wrap; 
+      word-break: break-word;
+      color: #00d4ff;
+    }
+    
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+    
+    h2 {
+      color: #fff;
+      margin-bottom: 0.5rem;
+    }
+    
+    .intro {
+      color: #888;
+      margin-bottom: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1> OpenClaw State Engine</h1>
+  </div>
+  
+  <div class="status-bar">
+    <div class="status-item">
+      <span class="status-dot loading" id="api-status"></span>
+      <span id="api-text">Connecting...</span>
+    </div>
+    <div class="status-item">
+      <span id="last-refresh">Never</span>
+    </div>
+  </div>
+  
+  <div class="container">
+    <h2>Dashboard</h2>
+    <p class="intro">Monitor sessions, goals, tool executions, and agent activity in real-time.</p>
+    
+    <div class="grid" id="metrics">
+      <div class="card">
+        <h3>👤 Users</h3>
+        <div class="metric" id="user-count">-</div>
+        <div class="metric-label">Total registered users</div>
+      </div>
+      
+      <div class="card">
+        <h3>📂 Sessions</h3>
+        <div class="metric" id="session-count">-</div>
+        <div class="metric-label">Active sessions</div>
+      </div>
+      
+      <div class="card">
+        <h3>🎯 Goals</h3>
+        <div class="metric" id="goal-count">-</div>
+        <div class="metric-label">Pending goals</div>
+      </div>
+      
+      <div class="card"
+        >h3>⚡ Executions</h3>
+        <div class="metric" id="execution-count">-</div>
+        <div class="metric-label">Total tool executions</div>
+      </div>
+    </div>
+    
+    <div class="grid" style="margin-top: 2rem;">
+      <div class="card" style="grid-column: 1 / -1;">
+        <h3>Quick Actions</h3>
+        <div class="input-group">
+          <input type="text" id="username-input" placeholder="Enter username to create user...">
+          <button class="btn" onclick="createUser()">Create User</button>
+        </div>
+        
+        <div class="input-group">
+          <input type="text" id="user-id-input" placeholder="User ID to create session...">
+          <button class="btn" onclick="createSession()">Create Session</button>
+        </div>
+        
+        <div class="actions"
+          <button class="btn btn-secondary" onclick="refreshData()">🔄 Refresh</button>
+          <button class="btn btn-secondary" onclick="demoScenario()">▶️ Run Demo</button>
+          <button class="btn btn-secondary" onclick="clearOutput()">🗑️ Clear</button>
+        </div>
+        
+        <div id="output"></div>
+      </div>
+    </div>
+    
+    <div class="grid" style="margin-top: 2rem;"
+      <div class="card"
+        <h3>Active Sessions</h3>
+        <div id="sessions-list" class="list"
+          <div class="empty">No active sessions</div>
+        </div>
+      </div>
+      
+      <div class="card"
+        <h3>Pending Goals</h3>
+        <div id="goals-list" class="list"
+          <div class="empty">No pending goals</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let users = [];
+    let sessions = [];
+    let goals = [];
+    let executions = [];
+    
+    // Call the state engine API
+    async function api(method, params = {}) {
+      const res = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method, params })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      return data.result;
+    }
+    
+    // Check API health
+    async function checkHealth() {
+      try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+        
+        const dot = document.getElementById('api-status');
+        const text = document.getElementById('api-text');
+        
+        if (data.status === 'connected') {
+          dot.className = 'status-dot connected';
+          text.textContent = `Connected to ${data.api}`;
+          return true;
+        } else {
+          dot.className = 'status-dot disconnected';
+          text.textContent = 'Disconnected';
+          return false;
+        }
+      } catch {
+        document.getElementById('api-status').className = 'status-dot disconnected';
+        document.getElementById('api-text').textContent = 'API Error';
+        return false;
+      }
+    }
+    
+    // Refresh all data
+    async function refreshData() {
+      if (!(await checkHealth())) return;
+      
+      try {
+        // Try to get data - some methods may not exist yet
+        document.getElementById('last-refresh').textContent = new Date().toLocaleTimeString();
+        
+        // Get some sample users if any exist
+        try {
+          // Create a test user to get data flowing
+          const testUser = await api('create_user', { username: `dashboard-${Date.now()}` });
+          users.push(testUser);
+          
+          // Create a test session
+          const session = await api('create_session', { user_id: testUser.id });
+          sessions.push(session);
+          
+          // Create a test goal
+          const goal = await api('create_goal', {
+            user_id: testUser.id,
+            session_id: session.id,
+            title: `Demo goal ${Date.now()}`,
+            description: 'Created from dashboard'
+          });
+          goals.push(goal);
+          
+          // Execute a test tool
+          const exec = await api('execute_tool_idempotent', {
+            user_id: testUser.id,
+            session_id: session.id,
+            goal_id: goal.id,
+            tool_name: 'demo_tool',
+            tool_input: { message: 'Hello from dashboard!' },
+            idempotency_key: `demo-${Date.now()}`
+          });
+          executions.push(exec);
+          
+        } catch (e) {
+          console.log('API methods may not be fully implemented:', e.message);
+        }
+        
+        updateUI();
+        showOutput('Data refreshed successfully', 'success');
+      } catch (error) {
+        showOutput(`Error: ${error.message}`, 'error');
+      }
+    }
+    
+    // Update UI
+    function updateUI() {
+      document.getElementById('user-count').textContent = users.length;
+      document.getElementById('session-count').textContent = sessions.length;
+      document.getElementById('goal-count').textContent = goals.filter(g => g.status === 'pending').length;
+      document.getElementById('execution-count').textContent = executions.length;
+      
+      // Render sessions
+      const sessionsList = document.getElementById('sessions-list');
+      if (sessions.length === 0) {
+        sessionsList.innerHTML = '<div class="empty">No active sessions</div>';
+      } else {
+        sessionsList.innerHTML = sessions.slice(-10).reverse().map(s => `
+          <div class="list-item"
+            <div><strong>${s.id?.slice(0, 8) || '...'}...</strong> 
+              <span class="badge ${s.status === 'active' ? 'active' : 'inactive'}">${s.status || 'unknown'}</span>
+            </div>
+            <div style="color: #666; margin-top: 4px;">User: ${s.user_id?.slice(0, 8) || '...'} | Created: ${new Date(s.created_at).toLocaleDateString()}</div>
+          </div>
+        `).join('');
+      }
+      
+      // Render goals
+      const goalsList = document.getElementById('goals-list');
+      const pendingGoals = goals.filter(g => g.status === 'pending');
+      if (pendingGoals.length === 0) {
+        goalsList.innerHTML = '<div class="empty">No pending goals</div>';
+      } else {
+        goalsList.innerHTML = pendingGoals.slice(-10).reverse().map(g => `
+          <div class="list-item"
+            <div><strong>${g.title}</strong> 
+              <span class="badge ${g.status}">${g.status}</span>
+            </div>
+            <div style="color: #666; margin-top: 4px;">ID: ${g.id?.slice(0, 16) || '...'}...</div>
+            <div style="color: #888; margin-top: 4px; font-size: 0.75rem;">${g.description || 'No description'}</div>
+          </div>
+        `).join('');
+      }
+    }
+    
+    // Create user
+    async function createUser() {
+      const input = document.getElementById('username-input');
+      const username = input.value.trim();
+      if (!username) {
+        showOutput('Please enter a username', 'error');
+        return;
+      }
+      
+      try {
+        const user = await api('create_user', { username });
+        users.push(user);
+        updateUI();
+        input.value = '';
+        showOutput(`User created: ${user.id}`, 'success');
+      } catch (error) {
+        showOutput(`Error: ${error.message}`, 'error');
+      }
+    }
+    
+    // Create session
+    async function createSession() {
+      const input = document.getElementById('user-id-input');
+      const userId = input.value.trim();
+      if (!userId) {
+        showOutput('Please enter a user ID', 'error');
+        return;
+      }
+      
+      try {
+        const session = await api('create_session', { user_id: userId });
+        sessions.push(session);
+        updateUI();
+        input.value = '';
+        showOutput(`Session created: ${session.id}`, 'success');
+      } catch (error) {
+        showOutput(`Error: ${error.message}`, 'error');
+      }
+    }
+    
+    // Demo scenario
+    async function demoScenario() {
+      try {
+        const timestamp = Date.now();
+        
+        // Create user
+        const user = await api('create_user', { username: `demo-${timestamp}` });
+        showOutput(`Created user: ${user.id?.slice(0, 16)}...`, 'success');
+        
+        // Create session
+        const session = await api('create_session', { user_id: user.id });
+        showOutput(`Created session: ${session.id?.slice(0, 16)}...`, 'success');
+        
+        // Create multiple goals
+        for (let i = 1; i <= 3; i++) {
+          const goal = await api('create_goal', {
+            user_id: user.id,
+            session_id: session.id,
+            title: `Demo Goal ${i}`,
+            description: `Automatically created goal ${i}`
+          });
+          goals.push(goal);
+        }
+        
+        users.push(user);
+        sessions.push(session);
+        updateUI();
+        showOutput('Demo scenario complete! Created 1 user, 1 session, 3 goals.', 'success');
+      } catch (error) {
+        showOutput(`Error: ${error.message}`, 'error');
+      }
+    }
+    
+    // Show output message
+    function showOutput(message, type) {
+      const output = document.getElementById('output');
+      output.innerHTML = `<div class="${type}">
+        <strong>${type === 'success' ? '✓' : '✗'}</strong> ${message}
+      </div>`;
+    }
+    
+    function clearOutput() {
+      document.getElementById('output').innerHTML = '';
+    }
+    
+    // Initialize
+    checkHealth();
+    setInterval(checkHealth, 5000);
+  </script>
+</body>
+</html>

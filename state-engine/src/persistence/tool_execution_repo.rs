@@ -209,6 +209,47 @@ impl ToolExecutionRepository {
             idempotency_key,
             started_at: started_at_str.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
             completed_at: completed_at_str.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
+            retry_state: None, // TODO: Parse from database
         })
+    }
+
+    pub fn get_retryable_for_session(
+        &self,
+        session_id: Uuid,
+        limit: usize,
+    ) -> Result<Vec<ToolExecution>, DatabaseError> {
+        let now = chrono::Utc::now().to_rfc3339();
+        
+        self.db.query(
+            "SELECT id, goal_id, session_id, user_id, tool_name, tool_input, status, output,
+             error, idempotency_key, started_at, completed_at, created_at, updated_at 
+             FROM tool_executions 
+             WHERE session_id = ? AND status = 'pending' 
+             AND (retry_next_at IS NULL OR retry_next_at <= ?)
+             ORDER BY created_at ASC
+             LIMIT ?",
+            &[session_id.to_string(), now, limit.to_string()],
+            |row| Self::row_to_execution(row),
+        )
+    }
+
+    pub fn update_retry_state(
+        &self,
+        execution_id: Uuid,
+        retry_state: &RetryState,
+    ) -> Result<(), DatabaseError> {
+        let retry_json = serde_json::to_string(retry_state)
+            .map_err(|e| DatabaseError::SerializationError(e.to_string()))?;
+        
+        self.db.execute(
+            "UPDATE tool_executions SET retry_state = ?, updated_at = ? WHERE id = ?",
+            &[
+                retry_json,
+                chrono::Utc::now().to_rfc3339(),
+                execution_id.to_string(),
+            ],
+        )?;
+        
+        Ok(())
     }
 }

@@ -8,6 +8,7 @@ mod goal;
 mod tool_execution;
 mod memory;
 mod channel;
+mod tool_schema;
 
 pub use user::*;
 pub use session::*;
@@ -15,6 +16,7 @@ pub use goal::*;
 pub use tool_execution::*;
 pub use memory::*;
 pub use channel::*;
+pub use tool_schema::*;
 
 /// Schema version for migrations
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;

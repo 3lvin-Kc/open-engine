@@ -39,6 +39,27 @@ pub struct ToolExecution {
     pub idempotency_key: Option<String>,
     pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
+    pub retry_state: Option<RetryState>,
+}
+
+/// Retry state tracking for automatic retries
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RetryState {
+    pub attempt_count: u32,
+    pub last_error: Option<String>,
+    pub next_retry_at: Option<DateTime<Utc>>,
+    pub retry_policy: Option<RetryPolicy>,
+}
+
+impl Default for RetryState {
+    fn default() -> Self {
+        Self {
+            attempt_count: 0,
+            last_error: None,
+            next_retry_at: None,
+            retry_policy: None,
+        }
+    }
 }
 
 impl ToolExecution {
@@ -62,6 +83,7 @@ impl ToolExecution {
             idempotency_key: None,
             started_at: None,
             completed_at: None,
+            retry_state: None,
         }
     }
 
@@ -94,6 +116,43 @@ impl ToolExecution {
         self.status = ToolStatus::Cancelled;
         self.completed_at = Some(Utc::now());
         self.base.updated_at = Utc::now();
+    }
+
+    pub fn mark_for_retry(&mut self, error: String, retry_policy: &RetryPolicy) {
+        self.status = ToolStatus::Pending;
+        self.error = Some(error.clone());
+        
+        let attempt_count = self.retry_state.as_ref().map(|r| r.attempt_count).unwrap_or(0) + 1;
+        let delay_ms = retry_policy.calculate_delay(attempt_count);
+        let next_retry = Utc::now() + chrono::Duration::milliseconds(delay_ms as i64);
+        
+        self.retry_state = Some(RetryState {
+            attempt_count,
+            last_error: Some(error),
+            next_retry_at: Some(next_retry),
+            retry_policy: Some(retry_policy.clone()),
+        });
+        
+        self.base.updated_at = Utc::now();
+    }
+
+    pub fn can_retry(&self, retry_policy: &RetryPolicy) -> bool {
+        let attempt_count = self.retry_state.as_ref().map(|r| r.attempt_count).unwrap_or(0);
+        attempt_count < retry_policy.max_attempts
+    }
+
+    pub fn is_ready_for_retry(&self) -> bool {
+        if self.status != ToolStatus::Pending {
+            return false;
+        }
+        
+        if let Some(ref retry_state) = self.retry_state {
+            if let Some(next_retry) = retry_state.next_retry_at {
+                return Utc::now() >= next_retry;
+            }
+        }
+        
+        false
     }
 }
 

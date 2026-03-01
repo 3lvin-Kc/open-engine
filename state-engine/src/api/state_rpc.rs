@@ -158,6 +158,38 @@ impl StateRpc {
         repo.list_for_goal(goal_id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
     }
 
+    // Tool Schema Registry methods
+    pub fn register_tool_schema(&self, schema: ToolSchema) -> Result<ToolSchema, jsonrpsee::types::ErrorObject<'static>> {
+        let repo = crate::persistence::ToolSchemaRepository::new(self.db.clone());
+        repo.create(&schema).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        Ok(schema)
+    }
+
+    pub fn get_tool_schema(&self, tool_name: String) -> Result<Option<ToolSchema>, jsonrpsee::types::ErrorObject<'static>> {
+        let repo = crate::persistence::ToolSchemaRepository::new(self.db.clone());
+        repo.get_by_name(&tool_name).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+    }
+
+    pub fn validate_tool_input(&self, tool_name: String, input: serde_json::Value) -> Result<bool, jsonrpsee::types::ErrorObject<'static>> {
+        let repo = crate::persistence::ToolSchemaRepository::new(self.db.clone());
+        let schema = repo.get_by_name(&tool_name)
+            .map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?
+            .ok_or_else(|| jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INVALID_PARAMS_CODE,
+                format!("Tool schema not found: {}", tool_name),
+                None::<()>,
+            ))?;
+        
+        match schema.validate_input(&input) {
+            Ok(()) => Ok(true),
+            Err(e) => Err(jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INVALID_PARAMS_CODE,
+                format!("Validation failed: {}", e),
+                None::<()>,
+            )),
+        }
+    }
+
     pub fn create_memory(&self, user_id: Uuid, content: String, importance: Option<MemoryImportance>, tags: Option<Vec<String>>) -> Result<Memory, jsonrpsee::types::ErrorObject<'static>> {
         let mut memory = Memory::new_short_term(user_id, content);
         if let Some(imp) = importance {
@@ -184,6 +216,73 @@ impl StateRpc {
     pub fn list_memories(&self, user_id: Uuid, limit: Option<usize>) -> Result<Vec<Memory>, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::MemoryRepository::new(self.db.clone());
         repo.list_for_user(user_id, limit.unwrap_or(50)).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+    }
+
+    // Tool Schema Registry methods
+    pub fn register_tool_schema(&self, schema: ToolSchema
+    ) -> Result<ToolSchema, jsonrpsee::types::ErrorObject<'static>> {
+        let repo = crate::persistence::ToolSchemaRepository::new(self.db.clone());
+        repo.create(&schema).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        Ok(schema)
+    }
+
+    pub fn get_tool_schema(
+        &self,
+        tool_name: String,
+    ) -> Result<Option<ToolSchema>, jsonrpsee::types::ErrorObject<'static>> {
+        let repo = crate::persistence::ToolSchemaRepository::new(self.db.clone());
+        repo.get_by_name(&tool_name).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+    }
+
+    pub fn validate_tool_input(
+        &self,
+        tool_name: String,
+        input: serde_json::Value,
+    ) -> Result<bool, jsonrpsee::types::ErrorObject<'static>> {
+        let repo = crate::persistence::ToolSchemaRepository::new(self.db.clone());
+        let schema = repo.get_by_name(&tool_name)
+            .map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?
+            .ok_or_else(|| jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INVALID_PARAMS_CODE,
+                format!("Tool schema not found: {}", tool_name),
+                None::<()>,
+            ))?;
+        
+        match schema.validate_input(&input) {
+            Ok(()) => Ok(true),
+            Err(e) => Err(jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INVALID_PARAMS_CODE,
+                format!("Validation failed: {}", e),
+                None::<()>,
+            )),
+        }
+    }
+
+    // Retry management methods
+    pub fn mark_for_retry(
+        &self,
+        execution_id: Uuid,
+        error: String,
+        retry_policy: RetryPolicy,
+    ) -> Result<ToolExecution, jsonrpsee::types::ErrorObject<'static>> {
+        let repo = crate::persistence::ToolExecutionRepository::new(self.db.clone());
+        let mut execution = repo.get(execution_id)
+            .map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        
+        execution.mark_for_retry(error, &retry_policy);
+        repo.update(&execution).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        
+        Ok(execution)
+    }
+
+    pub fn get_retryable_executions(
+        &self,
+        session_id: Uuid,
+        limit: Option<usize>,
+    ) -> Result<Vec<ToolExecution>, jsonrpsee::types::ErrorObject<'static>> {
+        let repo = crate::persistence::ToolExecutionRepository::new(self.db.clone());
+        repo.get_retryable_for_session(session_id, limit.unwrap_or(50))
+            .map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
     }
 }
 
@@ -359,6 +458,40 @@ pub fn create_rpc_module(db: Database) -> RpcModule<StateRpc> {
         })
         .unwrap();
 
+    // Tool Schema Registry endpoints
+    module
+        .register_method("register_tool_schema", |params, state| {
+            let p: RegisterToolSchemaParams = params.parse()?;
+            state.register_tool_schema(p.schema)
+        })
+        .unwrap();
+
+    module
+        .register_method("get_tool_schema", |params, state| {
+            let p: GetToolSchemaParams = params.parse()?;
+            state.get_tool_schema(p.tool_name)
+        })
+        .unwrap();
+
+    module
+        .register_method("list_tool_schemas", |params, _state| {
+            let p: ListToolSchemasParams = params.parse()?;
+            // This would need to be implemented in the state
+            Err(jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::METHOD_NOT_FOUND_CODE,
+                "list_tool_schemas not yet implemented".to_string(),
+                None::<()>,
+            ))
+        })
+        .unwrap();
+
+    module
+        .register_method("validate_tool_input", |params, state| {
+            let p: ValidateToolInputParams = params.parse()?;
+            state.validate_tool_input(p.tool_name, p.input)
+        })
+        .unwrap();
+
     module
 }
 
@@ -502,4 +635,39 @@ struct ExecuteToolIdempotentParams {
     tool_name: String,
     tool_input: serde_json::Value,
     idempotency_key: String,
+}
+
+#[derive(serde::Deserialize)]
+struct RegisterToolSchemaParams {
+    schema: crate::models::ToolSchema,
+}
+
+#[derive(serde::Deserialize)]
+struct GetToolSchemaParams {
+    tool_name: String,
+}
+
+#[derive(serde::Deserialize)]
+struct ListToolSchemasParams {
+    category: Option<String>,
+    enabled_only: Option<bool>,
+}
+
+#[derive(serde::Deserialize)]
+struct ValidateToolInputParams {
+    tool_name: String,
+    input: serde_json::Value,
+}
+
+#[derive(serde::Deserialize)]
+struct MarkForRetryParams {
+    execution_id: Uuid,
+    error: String,
+    retry_policy: crate::models::RetryPolicy,
+}
+
+#[derive(serde::Deserialize)]
+struct GetRetryableExecutionsParams {
+    session_id: Uuid,
+    limit: Option<usize>,
 }

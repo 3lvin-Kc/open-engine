@@ -40,6 +40,11 @@ pub fn run_migrations(conn: &Connection) -> Result<(), MigrationError> {
         migration_v2(conn)?;
     }
     
+    if current_version < 3 {
+        info!("Running migration 3: Tool schema registry");
+        migration_v3(conn)?;
+    }
+    
     Ok(())
 }
 
@@ -259,5 +264,50 @@ fn migration_v2(conn: &Connection) -> Result<(), MigrationError> {
     ).map_err(|e| MigrationError::DatabaseError(e.to_string()))?;
     
     info!("Migration v2 completed successfully");
+    Ok(())
+}
+
+/// Migration v3: Add tool schema registry
+fn migration_v3(conn: &Connection) -> Result<(), MigrationError> {
+    // Tool schemas table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS tool_schemas (
+            id TEXT PRIMARY KEY,
+            tool_name TEXT NOT NULL UNIQUE,
+            description TEXT NOT NULL,
+            version TEXT NOT NULL DEFAULT '1.0.0',
+            parameters TEXT NOT NULL DEFAULT '[]',
+            return_type TEXT,
+            return_description TEXT,
+            category TEXT,
+            tags TEXT NOT NULL DEFAULT '[]',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            deprecated INTEGER NOT NULL DEFAULT 0,
+            deprecation_message TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )",
+        [],
+    ).map_err(|e| MigrationError::DatabaseError(e.to_string()))?;
+    
+    // Indexes for tool schema queries
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tool_schemas_enabled ON tool_schemas(enabled)",
+        [],
+    ).map_err(|e| MigrationError::DatabaseError(e.to_string()))?;
+    
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tool_schemas_category ON tool_schemas(category)",
+        [],
+    ).map_err(|e| MigrationError::DatabaseError(e.to_string()))?;
+    
+    // Record migration
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO schema_version (version, applied_at) VALUES (3, ?)",
+        params![now],
+    ).map_err(|e| MigrationError::DatabaseError(e.to_string()))?;
+    
+    info!("Migration v3 completed successfully");
     Ok(())
 }

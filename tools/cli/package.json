@@ -1,0 +1,26 @@
+{
+  "name": "@openclaw/cli",
+  "version": "0.1.0",
+  "description": "CLI tool for OpenClaw State Engine - bootstrap projects, check health, generate keys",
+  "bin": {
+    "openclaw": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "echo \"Tests pending\" && exit 0"
+  },
+  "keywords": [
+    "openclaw",
+    "state-engine",
+    "cli",
+    "ai-agent",
+    "idempotency"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "chalk": "^5.3.0",
+    "inquirer": "^9.2.0"
+  },
+  "type": "module"
+}

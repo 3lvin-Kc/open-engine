@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenEngine Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-dark: #0d1117;
+            --bg-card: #161b22;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --success: #3fb950;
+            --warning: #d29922;
+            --error: #f85149;
+            --running: #a371f7;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        h1 { font-size: 28px; font-weight: 600; }
+        .header-controls { display: flex; gap: 10px; align-items: center; }
+        input, select {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--accent); }
+        button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        button.secondary { background: var(--bg-card); border: 1px solid var(--border); }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .stat-card h3 { color: var(--text-secondary); font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+        .stat-card .value { font-size: 32px; font-weight: 600; }
+        .stat-card .value.success { color: var(--success); }
+        .stat-card .value.warning { color: var(--warning); }
+        .stat-card .value.error { color: var(--error); }
+        .stat-card .value.running { color: var(--running); }
+        .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 1000px) { .main-content { grid-template-columns: 1fr; } }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 16px; }
+        .card-body { padding: 0; max-height: 500px; overflow-y: auto; }
+        .session-list, .execution-list { list-style: none; }
+        .session-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .session-item:hover { background: rgba(255,255,255,0.02); }
+        .session-item.active { background: rgba(88, 166, 255, 0.1); border-left: 3px solid var(--accent); }
+        .session-item .session-id { font-family: monospace; font-size: 13px; color: var(--text-secondary); }
+        .session-item .session-status { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 8px; }
+        .session-status.active { background: rgba(63, 185, 80, 0.2); color: var(--success); }
+        .session-status.paused { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+        .session-status.completed { background: rgba(139, 148, 158, 0.2); color: var(--text-secondary); }
+        .session-status.failed { background: rgba(248, 81, 73, 0.2); color: var(--error); }
+        .execution-item { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+        .execution-status { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .execution-status.completed { background: var(--success); }
+        .execution-status.failed { background: var(--error); }
+        .execution-status.pending { background: var(--text-secondary); }
+        .execution-status.running { background: var(--running); animation: pulse 1.5s infinite; }
+        .execution-status.cancelled { background: var(--warning); }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .execution-info { flex: 1; min-width: 0; }
+        .execution-tool { font-weight: 500; margin-bottom: 4px; }
+        .execution-meta { font-size: 12px; color: var(--text-secondary); display: flex; gap: 12px; }
+        .execution-id { font-family: monospace; font-size: 11px; color: var(--text-secondary); flex-shrink: 0; }
+        .empty-state { padding: 40px 20px; text-align: center; color: var(--text-secondary); }
+        .tool-stats { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .tool-stats span { font-size: 13px; color: var(--text-secondary); }
+        .tool-name { font-family: monospace; background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+        .detail-panel { grid-column: 1 / -1; display: none; }
+        .detail-panel.show { display: block; }
+        .detail-content { padding: 20px; }
+        .detail-row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .detail-label { color: var(--text-secondary); font-size: 13px; }
+        .detail-value { font-family: monospace; font-size: 13px; word-break: break-all; }
+        pre { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin-top: 8px; }
+        .loading { display: flex; justify-content: center; padding: 40px; color: var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>OpenEngine Dashboard</h1>
+            <div class="header-controls">
+                <input type="text" id="engineUrl" value="http://127.0.0.1:3030" placeholder="Engine URL">
+                <button onclick="loadData()" class="secondary">Refresh</button>
+                <button onclick="loadData()">Load Data</button>
+            </div>
+        </header>
+        <div class="stats-grid" id="stats">
+            <div class="stat-card"><h3>Total Sessions</h3><div class="value" id="totalSessions">-</div></div>
+            <div class="stat-card"><h3>Total Executions</h3><div class="value" id="totalExecutions">-</div></div>
+            <div class="stat-card"><h3>Completed</h3><div class="value success" id="completedCount">-</div></div>
+            <div class="stat-card"><h3>Failed</h3><div class="value error" id="failedCount">-</div></div>
+            <div class="stat-card"><h3>Running</h3><div class="value running" id="runningCount">-</div></div>
+            <div class="stat-card"><h3>Pending</h3><div class="value warning" id="pendingCount">-</div></div>
+        </div>
+        <div class="main-content">
+            <div class="card">
+                <div class="card-header">Sessions</div>
+                <div class="card-body">
+                    <div class="loading" id="sessionsLoading">Loading...</div>
+                    <ul class="session-list" id="sessionList"></ul>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">Tool Executions</div>
+                <div class="card-body">
+                    <div class="tool-stats" id="toolStats" style="display:none;">
+                        <span>Showing executions for session</span>
+                        <span class="tool-name" id="selectedSessionId">-</span>
+                    </div>
+                    <div class="loading" id="executionsLoading">Select a session</div>
+                    <ul class="execution-list" id="executionList"></ul>
+                </div>
+            </div>
+            <div class="card detail-panel" id="detailPanel">
+                <div class="card-header">Execution Details</div>
+                <div class="card-body detail-content" id="detailContent"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let rpcId = 0;
+        let currentSessionId = null;
+        let allExecutions = [];
+        async function rpcCall(method, params = {}) {
+            const url = document.getElementById('engineUrl').value;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: ++rpcId, method, params })
+            });
+            const data = await response.json();
+            return data.result;
+        }
+        async function loadData() {
+            document.getElementById('sessionsLoading').style.display = 'block';
+            document.getElementById('sessionList').innerHTML = '';
+            try {
+                const sessions = await rpcCall('list_sessions', {});
+                renderSessions(sessions || []);
+                let totalExec = 0, completed = 0, failed = 0, running = 0, pending = 0;
+                for (const session of sessions || []) {
+                    const goals = await rpcCall('list_pending_goals', { session_id: session.id });
+                    for (const goal of goals || []) {
+                        const execs = await rpcCall('list_tool_executions', { goal_id: goal.id });
+                        totalExec += execs?.length || 0;
+                        for (const e of execs || []) {
+                            if (e.status === 'completed') completed++;
+                            else if (e.status === 'failed') failed++;
+                            else if (e.status === 'running') running++;
+                            else pending++;
+                        }
+                    }
+                }
+                document.getElementById('totalSessions').textContent = sessions?.length || 0;
+                document.getElementById('totalExecutions').textContent = totalExec;
+                document.getElementById('completedCount').textContent = completed;
+                document.getElementById('failedCount').textContent = failed;
+                document.getElementById('runningCount').textContent = running;
+                document.getElementById('pendingCount').textContent = pending;
+            } catch (error) {
+                document.getElementById('sessionList').innerHTML = '<li class="empty-state">Error: ' + error.message + '</li>';
+            }
+            document.getElementById('sessionsLoading').style.display = 'none';
+        }
+        function renderSessions(sessions) {
+            const list = document.getElementById('sessionList');
+            if (sessions.length === 0) { list.innerHTML = '<li class="empty-state">No sessions found</li>'; return; }
+            list.innerHTML = sessions.map(s => 
+                '<li class="session-item ' + (s.id === currentSessionId ? 'active' : '') + '" onclick="selectSession(\'' + s.id + '\')">' +
+                    '<div><span class="session-id">' + s.id.slice(0, 8) + '...</span><span class="session-status ' + s.status + '">' + s.status + '</span></div>' +
+                    '<div class="execution-meta">Last activity: ' + new Date(s.last_activity_at).toLocaleString() + '</div>' +
+                '</li>'
+            ).join('');
+        }
+        async function selectSession(sessionId) {
+            currentSessionId = sessionId;
+            document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+            event.target.closest('.session-item')?.classList.add('active');
+            document.getElementById('toolStats').style.display = 'flex';
+            document.getElementById('selectedSessionId').textContent = sessionId.slice(0, 8);
+            document.getElementById('executionsLoading').style.display = 'block';
+            document.getElementById('executionList').innerHTML = '';
+            document.getElementById('detailPanel').classList.remove('show');
+            try {
+                const goals = await rpcCall('list_pending_goals', { session_id: sessionId });
+                allExecutions = [];
+                for (const goal of goals || []) {
+                    const execs = await rpcCall('list_tool_executions', { goal_id: goal.id });
+                    allExecutions.push(...(execs || []));
+                }
+                renderExecutions(allExecutions);
+            } catch (error) {
+                document.getElementById('executionList').innerHTML = '<li class="empty-state">Error: ' + error.message + '</li>';
+            }
+            document.getElementById('executionsLoading').style.display = 'none';
+        }
+        function renderExecutions(executions) {
+            const list = document.getElementById('executionList');
+            if (executions.length === 0) { list.innerHTML = '<li class="empty-state">No executions found</li>'; return; }
+            executions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            list.innerHTML = executions.map(e => 
+                '<li class="execution-item" onclick="showDetail(\'' + e.id + '\')">' +
+                    '<div class="execution-status ' + e.status + '"></div>' +
+                    '<div class="execution-info"><div class="execution-tool">' + e.tool_name + '</div><div class="execution-meta"><span>' + e.status + '</span><span>' + formatTime(e.created_at) + '</span></div></div>' +
+                    '<div class="execution-id">' + e.id.slice(0, 8) + '</div>' +
+                '</li>'
+            ).join('');
+        }
+        function showDetail(execId) {
+            const exec = allExecutions.find(e => e.id === execId);
+            if (!exec) return;
+            const panel = document.getElementById('detailPanel');
+            const content = document.getElementById('detailContent');
+            panel.classList.add('show');
+            let html = 
+                '<div class="detail-row"><div class="detail-label">ID</div><div class="detail-value">' + exec.id + '</div></div>' +
+                '<div class="detail-row"><div class="detail-label">Tool</div><div class="detail-value">' + exec.tool_name + '</div></div>' +
+                '<div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="execution-status ' + exec.status + '" style="display:inline-block;vertical-align:middle;margin-right:8px;"></span>' + exec.status + '</div></div>' +
+                '<div class="detail-row"><div class="detail-label">Idempotency Key</div><div class="detail-value">' + (exec.idempotency_key || '(auto-generated)') + '</div></div>' +
+                '<div class="detail-row"><div class="detail-label">Created</div><div class="detail-value">' + new Date(exec.created_at).toLocaleString() + '</div></div>' +
+                '<div class="detail-row"><div class="detail-label">Started</div><div class="detail-value">' + (exec.started_at ? new Date(exec.started_at).toLocaleString() : '-') + '</div></div>' +
+                '<div class="detail-row"><div class="detail-label">Completed</div><div class="detail-value">' + (exec.completed_at ? new Date(exec.completed_at).toLocaleString() : '-') + '</div></div>' +
+                '<div class="detail-row"><div class="detail-label">Input</div><div class="detail-value"><pre>' + JSON.stringify(exec.tool_input, null, 2) + '</pre></div></div>';
+            if (exec.output) html += '<div class="detail-row"><div class="detail-label">Output</div><div class="detail-value"><pre>' + JSON.stringify(exec.output, null, 2) + '</pre></div></div>';
+            if (exec.error) html += '<div class="detail-row"><div class="detail-label">Error</div><div class="detail-value" style="color:var(--error);">' + exec.error + '</div></div>';
+            content.innerHTML = html;
+            panel.scrollIntoView({ behavior: 'smooth' });
+        }
+        function formatTime(dateStr) { return new Date(dateStr).toLocaleTimeString(); }
+        loadData();
+    </script>
+</body>
+</html>

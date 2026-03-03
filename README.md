@@ -11,7 +11,7 @@
 AI agents fail in production because they forget everything on restart. This engine gives agents durable memory that survives crashes.
 
 **What it prevents:**
-- Duplicate tool executions (same email sent twice)
+- Duplicate tool executions (any tool, not just emails)
 - Lost progress on restart (agent forgets what it was doing)
 - Untraceable actions ("why did the agent do that?")
 - Corrupted state from partial failures
@@ -73,18 +73,26 @@ const exec = await client.executeToolIdempotent(
 );
 ```
 
-## Killer Feature: Hard Idempotency
+## Killer Feature: Automatic Idempotency
 
-The `execute_tool_idempotent` method guarantees no duplicate executions:
+The `execute_tool_idempotent` method guarantees no duplicate executions - **without needing to provide a key**:
 
 ```typescript
-// First call - creates new execution
-await client.executeToolIdempotent(..., 'email-001');
+// Auto-generated idempotency key (server creates one for you)
+const exec = await client.executeToolIdempotent(
+  user.id, session.id, goal.id,
+  'any_tool',
+  { input: 'value' }
+  // No idempotency_key needed - server generates:
+  // "auto:any_tool:20240315:abc123" from hash of inputs
+);
 
-// Second call with SAME key - returns existing execution, doesn't duplicate
-await client.executeToolIdempotent(..., 'email-001');
+// Same inputs = same auto-generated key = no duplicates!
+```
 
-// Same result, even after crash/restart
+Or provide your own key:
+```typescript
+await client.executeToolIdempotent(..., 'my-custom-key');
 ```
 
 This is atomic and race-condition safe. **Tested with 100 concurrent calls — all returned the same execution ID.**
@@ -195,13 +203,14 @@ const agent = new OpenClawAgent({
 
 await agent.init();
 
-// Crash-safe, duplicate-safe tool execution
+// Crash-safe, duplicate-safe tool execution - auto-tracked!
 const result = await agent.execute('send_email', {
   to: 'user@example.com',
   subject: 'Hello'
-}, {
-  idempotencyKey: 'welcome-email-001'
 });
+
+// Every tool automatically tracked - no manual key needed
+// Server auto-generates idempotency key from tool+inputs
 ```
 
 → [Read full docs](integrations/openclaw/README.md)
@@ -226,12 +235,35 @@ npm test
 ✅ Test 3 (Persist After Restart): PASS - Same result after restart
 ```
 
+## Dashboard
+
+Visualize tool executions, sessions, and statistics with the web dashboard:
+
+```bash
+# 1. Start the engine
+cd state-engine && cargo run -- serve --database openclaw_state.db
+
+# 2. Open dashboard in browser
+open dashboard/index.html
+```
+
+**Features:**
+- Session overview with status
+- Tool execution timeline
+- Execution details (input, output, errors)
+- Auto-generated idempotency keys visible
+
+![Dashboard](docs/dashboard.png)
+
+→ [Full dashboard docs](docs/DASHBOARD.md)
+
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
 | [API Version](docs/API_VERSION.md) | Frozen v0.1 API surface |
 | [Failure Contract](docs/FAILURE_CONTRACT.md) | What failures this prevents |
+| [Dashboard](docs/DASHBOARD.md) | Web dashboard for visualization |
 | [Transactions](docs/TRANSACTIONS.md) | Atomic guarantees explained |
 | [Why This Exists](docs/WHY_THIS_EXISTS.md) | Non-technical explanation |
 
@@ -292,7 +324,7 @@ npm test
 ## Project Structure
 
 ```
-engine_for_openclaw/
+open-engine/
 ├── state-engine/           # Rust backend
 │   ├── src/
 │   │   ├── models/         # Data models
@@ -305,6 +337,7 @@ engine_for_openclaw/
 │   │   ├── client.ts       # API client
 │   │   └── types.ts        # TypeScript types
 │   └── package.json
+├── dashboard/               # Web dashboard (HTML/CSS/JS)
 ├── examples/
 │   ├── email-agent/        # Complete integration example
 │   └── failure-demo/       # Before/after failure demo
@@ -314,6 +347,7 @@ engine_for_openclaw/
 │   ├── API_VERSION.md      # Frozen API surface
 │   ├── FAILURE_CONTRACT.md # Guarantees
 │   ├── TRANSACTIONS.md     # Atomic guarantees
+│   ├── DASHBOARD.md       # Dashboard docs
 │   └── WHY_THIS_EXISTS.md  # Non-technical explanation
 └── README.md
 ```

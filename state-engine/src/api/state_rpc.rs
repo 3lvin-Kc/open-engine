@@ -72,6 +72,11 @@ impl StateRpc {
         repo.get_active_for_user(user_id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
     }
 
+    pub fn list_sessions(&self, user_id: Uuid) -> Result<Vec<Session>, jsonrpsee::types::ErrorObject<'static>> {
+        let repo = crate::persistence::SessionRepository::new(self.db.clone());
+        repo.list_for_user(user_id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+    }
+
     pub fn update_session(&self, session: Session) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::SessionRepository::new(self.db.clone());
         repo.update(&session).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
@@ -255,6 +260,13 @@ pub fn create_rpc_module(db: Database) -> RpcModule<StateRpc> {
         .unwrap();
 
     module
+        .register_method("list_sessions", |params, state| {
+            let p: ListSessionsParams = params.parse()?;
+            state.list_sessions(p.user_id)
+        })
+        .unwrap();
+
+    module
         .register_method("update_session", |params, state| {
             let p: UpdateSessionParams = params.parse()?;
             state.update_session(p.session)
@@ -327,7 +339,16 @@ pub fn create_rpc_module(db: Database) -> RpcModule<StateRpc> {
     module
         .register_method("execute_tool_idempotent", |params, state| {
             let p: ExecuteToolIdempotentParams = params.parse()?;
-            state.execute_tool_idempotent(p.user_id, p.session_id, p.goal_id, p.tool_name, p.tool_input, p.idempotency_key)
+            let key = p.idempotency_key.unwrap_or_else(|| {
+                ToolExecution::generate_idempotency_key(
+                    p.user_id,
+                    p.session_id,
+                    p.goal_id,
+                    &p.tool_name,
+                    &p.tool_input,
+                )
+            });
+            state.execute_tool_idempotent(p.user_id, p.session_id, p.goal_id, p.tool_name, p.tool_input, key)
         })
         .unwrap();
 
@@ -410,6 +431,11 @@ struct GetSessionParams {
 
 #[derive(serde::Deserialize)]
 struct GetActiveSessionParams {
+    user_id: Uuid,
+}
+
+#[derive(serde::Deserialize)]
+struct ListSessionsParams {
     user_id: Uuid,
 }
 
@@ -501,5 +527,6 @@ struct ExecuteToolIdempotentParams {
     goal_id: Uuid,
     tool_name: String,
     tool_input: serde_json::Value,
-    idempotency_key: String,
+    #[serde(default)]
+    idempotency_key: Option<String>,
 }

@@ -1,0 +1,11 @@
+{
+  "name": "auto-key-test",
+  "version": "1.0.0",
+  "description": "Test auto-generated idempotency keys",
+  "main": "test.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

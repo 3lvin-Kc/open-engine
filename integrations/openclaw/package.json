@@ -1,0 +1,19 @@
+{
+  "name": "openclaw-integration",
+  "version": "1.0.0",
+  "description": "Makes OpenClaw agents durable and reliable.",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@openclaw/ts-client": "file:../../ts-client"
+  }
+}

@@ -1,62 +1,167 @@
 # OpenClaw Integration for Open Engine
 
-Makes OpenClaw agents durable and reliable.
+Makes OpenClaw agents durable and reliable with idempotency guarantees.
 
 ## What This Does
 
-- **Survives crashes**: Session state persists, resume where you left off
-- **Prevents duplicates**: Idempotent tool execution — same action = same result
-- **Full audit trail**: Every action tracked and replayable
-- **Goal tracking**: Break work into trackable goals with progress
+- **Idempotent tool execution** — Same action = same result, prevents duplicates
+- **Crash recovery** — Resume interrupted work after restart
+- **Full audit trail** — Track every action your agent performs
+- **Session management** — Track goals and tool executions per session
 
 ## Quick Start
+
+### 1. Start Open Engine Server
+
+```bash
+cd state-engine
+cargo run -- serve --database openclaw.db
+# Runs on http://127.0.0.1:3030
+```
+
+### 2. Start OpenClaw Gateway
+
+```bash
+openclaw gateway start
+# Runs on http://127.0.0.1:18789
+```
+
+### 3. Use the Adapter
 
 ```typescript
 import { OpenClawAgent } from './adapter';
 
-// 1. Start Open Engine server
-// cargo run -- serve --database openclaw.db
-
-// 2. Create agent
+// Create agent with both Open Engine and OpenClaw configs
 const agent = new OpenClawAgent({
-  userId: 'my-agent',
-  engineUrl: 'http://127.0.0.1:3030'
+  userId: 'my-user',
+  engineUrl: 'http://127.0.0.1:3030',      // Open Engine server
+  openclawUrl: 'http://127.0.0.1:18789',    // OpenClaw Gateway
+  openclawToken: 'YOUR_OPENCLAW_TOKEN'       // Your auth token
 });
 
-await agent.init('my-session');
+// Initialize - creates user and session in Open Engine
+await agent.init();
 
-// 3. Execute tools with durability
-const result = await agent.execute('web_search', {
-  query: 'rust programming'
+// Execute tools - idempotency key is AUTO-GENERATED!
+const result = await agent.execute('exec', {
+  command: 'npm install'
 }, {
-  goalName: 'Research Rust',
-  idempotencyKey: 'search-rust-20250227'
+  goalName: 'Setup project'
+  // No idempotencyKey needed - server auto-generates it!
 });
 
-// Crash? Restart? Same key = same result, no duplicate search
+console.log(result);
+// { success: true, data: {...}, executionId: '...' }
 ```
 
-## Integration Architecture
+## Key Features
+
+### Auto-Generated Idempotency Keys (NEW!)
+
+Every tool execution is automatically tracked with an auto-generated idempotency key. No manual key needed!
+
+```typescript
+// Just execute - server auto-generates key from tool+inputs
+await agent.execute('send_email', { to: 'user@example.com' });
+// Key format: "auto:send_email:20240315:abc123"
+
+// Same tool + same inputs = same execution (no duplicates!)
+await agent.execute('send_email', { to: 'user@example.com' });
+// Returns cached result!
+```
+
+You can still provide a custom key if needed:
+```typescript
+await agent.execute('send_email', { to: 'user@example.com' }, {
+  idempotencyKey: 'my-custom-key'
+});
+```
+
+### Session Resume
+
+After crash/restart, your agent resumes where it left off:
+
+```typescript
+// On startup - auto-resumes last active session
+await agent.init();
+
+// Or resume a specific session
+await agent.resumeSession('session-id-from-database');
+```
+
+### Audit Trail
+
+Get full history of what your agent did:
+
+```typescript
+const audit = await agent.getSessionAudit();
+console.log(audit);
+// {
+//   session: {...},
+//   goals: [...],
+//   executions: [...]
+// }
+```
+
+## API
+
+### OpenClawAgent
+
+```typescript
+new OpenClawAgent(config: {
+  userId: string;           // Your user identifier
+  engineUrl: string;        // Open Engine server URL
+  openclawUrl?: string;     // OpenClaw Gateway URL (default: http://127.0.0.1:18789)
+  openclawToken?: string;   // OpenClaw auth token
+})
+```
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `init()` | Initialize agent, create user/session |
+| `execute(tool, params, options)` | Execute tool with idempotency |
+| `resumeSession(sessionId)` | Resume a specific session |
+| `getSessionAudit()` | Get full audit trail |
+| `listSessions()` | List all sessions for user |
+| `listPendingGoals()` | Get pending goals in current session |
+
+## Testing
+
+```bash
+cd integrations/openclaw
+npm install
+npm test
+```
+
+All 12 tests pass:
+- OpenClaw Tools Invoke API integration
+- Error handling (HTTP errors, network errors)
+- Idempotency key generation
+- Configuration defaults
+
+## Architecture
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌────────────────┐
-│ OpenClaw   │────>│   Adapter   │────>│  Open Engine   │
-│  Agent     │     │  (this)      │     │  (Rust core)   │
-└─────────────┘     └──────────────┘     └────────────────┘
-                            │
-                            ▼
-                     ┌──────────────┐
-                     │   SQLite    │
-                     │   (durable) │
-                     └──────────────┘
+┌──────────────┐     ┌─────────────────┐     ┌────────────────┐
+│   You/       │────▶│   OpenClaw     │────▶│  Open Engine  │
+│   Channels   │     │  (Gateway)     │     │  (This tool)  │
+│  (WA/TG/..)  │◀────│  Tools + AI    │◀────│  Idempotency  │
+└──────────────┘     └─────────────────┘     └────────────────┘
+                                                      │
+                                                      ▼
+                                               ┌───────────┐
+                                               │  SQLite   │
+                                               │  (durable)│
+                                               └───────────┘
 ```
 
-## TODO
+## Requirements
 
-- [ ] Implement actual OpenClaw tool invocation
-- [ ] Add session auto-resume on startup
-- [ ] Create dashboard view for active sessions
-- [ ] Add multi-agent coordination support
+- OpenClaw Gateway running (for actual tool execution)
+- Open Engine server running (for state tracking)
+- Auth token for OpenClaw Gateway
 
 ## License
 

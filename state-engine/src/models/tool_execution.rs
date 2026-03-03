@@ -3,6 +3,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use super::{Entity, EntityBase};
 
@@ -68,6 +70,23 @@ impl ToolExecution {
     pub fn with_idempotency_key(mut self, key: String) -> Self {
         self.idempotency_key = Some(key);
         self
+    }
+
+    pub fn generate_idempotency_key(
+        user_id: Uuid,
+        session_id: Uuid,
+        goal_id: Uuid,
+        tool_name: &str,
+        tool_input: &serde_json::Value,
+    ) -> String {
+        let mut hasher = DefaultHasher::new();
+        user_id.hash(&mut hasher);
+        session_id.hash(&mut hasher);
+        goal_id.hash(&mut hasher);
+        tool_name.hash(&mut hasher);
+        tool_input.hash(&mut hasher);
+        let hash = hasher.finish();
+        format!("auto:{}-{}:{:x}", tool_name, chrono::Utc::now().format("%Y%m%d%H%M%S"), hash)
     }
 
     pub fn start(&mut self) {

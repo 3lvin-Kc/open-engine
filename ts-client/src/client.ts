@@ -118,6 +118,10 @@ export class StateEngineClient {
     return this.call("get_active_session", { user_id: userId });
   }
 
+  async listSessions(userId: string): Promise<import("./types").Session[]> {
+    return this.call("list_sessions", { user_id: userId });
+  }
+
   async updateSession(session: import("./types").Session): Promise<void> {
     return this.call("update_session", { session });
   }
@@ -170,7 +174,7 @@ export class StateEngineClient {
     goalId: string,
     toolName: string,
     toolInput: Record<string, unknown>,
-    idempotencyKey: string
+    idempotencyKey?: string
   ): Promise<import("./types").ToolExecution> {
     return this.call("execute_tool_idempotent", {
       user_id: userId,
@@ -178,7 +182,7 @@ export class StateEngineClient {
       goal_id: goalId,
       tool_name: toolName,
       tool_input: toolInput,
-      idempotency_key: idempotencyKey,
+      idempotency_key: idempotencyKey ?? null,
     });
   }
 

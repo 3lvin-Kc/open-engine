@@ -6,65 +6,106 @@
  * Usage:
  *   const agent = new OpenClawAgent({
  *     userId: 'doremon',
- *     engineUrl: 'http://127.0.0.1:3030'
+ *     engineUrl: 'http://127.0.0.1:3030',
+ *     openclawUrl: 'http://127.0.0.1:18789',
+ *     openclawToken: 'YOUR_TOKEN'
  *   });
  * 
+ *   await agent.init();
  *   const result = await agent.execute('web_search', { query: 'rust' });
  */
 
 import { StateEngineClient } from '../../ts-client/src/client';
-import { ToolExecutionInput } from '../../ts-client/src/types';
+import type { ToolExecution, Goal, Session, ToolExecutionStatus } from '../../ts-client/src/types';
 
 type ToolName = 'web_search' | 'web_fetch' | 'exec' | 'read' | 'write' | 'edit' | 
                 'message' | 'github' | 'browser' | 'image' | 'memory_search' | 
-                'cron' | 'gateway' | 'sessions_spawn' | 'sessions_list';
+                'cron' | 'gateway' | 'sessions_spawn' | 'sessions_list' | 'sessions_show';
 
 interface ToolResult {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
   executionId?: string;
+}
+
+interface OpenClawInvokeOptions {
+  tool: string;
+  action?: string;
+  args?: Record<string, unknown>;
+  sessionKey?: string;
+  dryRun?: boolean;
 }
 
 interface AgentConfig {
   userId: string;
   engineUrl: string;
-  sessionName?: string;
+  openclawUrl?: string;
+  openclawToken?: string;
 }
 
 export class OpenClawAgent {
   private client: StateEngineClient;
   private userId: string;
-  private sessionId: string;
+  private sessionId: string = '';
   private activeGoalId: string | null = null;
+  private openclawUrl: string;
+  private openclawToken: string;
 
   constructor(config: AgentConfig) {
     this.client = new StateEngineClient({ url: config.engineUrl });
     this.userId = config.userId;
-    this.sessionId = '';
+    this.openclawUrl = config.openclawUrl || 'http://127.0.0.1:18789';
+    this.openclawToken = config.openclawToken || '';
   }
 
   /**
    * Initialize the agent - create user and session in Open Engine
    */
-  async init(sessionName?: string): Promise<void> {
+  async init(): Promise<void> {
     try {
-      // Check if user exists, create if not
-      let user;
-      try {
-        // Try to find existing user (this would need API support)
-        user = await this.client.createUser(this.userId);
-      } catch (e) {
-        // User might already exist
+      await this.client.createUser(this.userId);
+      
+      const existingSession = await this.client.getActiveSession(this.userId);
+      if (existingSession) {
+        this.sessionId = existingSession.id;
+        const goals = await this.client.listPendingGoals(this.sessionId);
+        if (goals.length > 0) {
+          this.activeGoalId = goals[0].id;
+        }
+        console.log(`[OpenClawAgent] Resumed existing session: ${this.sessionId}`);
+        await this.replayIncompleteExecutions();
+        return;
       }
 
-      // Create session
-      const session = await this.client.createSession(this.userId, sessionName || 'openclaw-session');
+      const session = await this.client.createSession(this.userId);
       this.sessionId = session.id;
 
       console.log(`[OpenClawAgent] Initialized: user=${this.userId}, session=${this.sessionId}`);
     } catch (error) {
       console.error('[OpenClawAgent] Init failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Resume a specific session by ID
+   */
+  async resumeSession(sessionId: string): Promise<void> {
+    try {
+      const session = await this.client.getSession(sessionId);
+      this.sessionId = session.id;
+      
+      const goals = await this.client.listPendingGoals(session.id);
+      if (goals.length > 0) {
+        this.activeGoalId = goals[0].id;
+      }
+
+      console.log(`[OpenClawAgent] Resumed session: ${sessionId}`);
+      
+      await this.replayIncompleteExecutions();
+    } catch (error) {
+      console.error('[OpenClawAgent] Resume failed:', error);
       throw error;
     }
   }
@@ -77,8 +118,8 @@ export class OpenClawAgent {
    * @param options - Execution options
    */
   async execute(
-    toolName: ToolName,
-    params: Record<string, any>,
+    toolName: string,
+    params: Record<string, unknown> = {},
     options: {
       goalName?: string;
       idempotencyKey?: string;
@@ -86,50 +127,66 @@ export class OpenClawAgent {
     } = {}
   ): Promise<ToolResult> {
     try {
-      // Create goal if not exists
-      if (!this.activeGoalId && options.goalName) {
+      if (!this.sessionId) {
+        await this.init();
+      }
+
+      if (!this.activeGoalId || options.goalName) {
         const goal = await this.client.createGoal(
           this.userId,
           this.sessionId,
-          options.goalName,
-          options.priority || 'medium'
+          options.goalName || `Execute ${toolName}`,
+          undefined
         );
         this.activeGoalId = goal.id;
       }
 
-      if (!this.activeGoalId) {
-        // Create default goal
-        const goal = await this.client.createGoal(
-          this.userId,
-          this.sessionId,
-          `Execute ${toolName}`,
-          'medium'
-        );
-        this.activeGoalId = goal.id;
-      }
+      
 
-      // Generate idempotency key if not provided
-      const idempotencyKey = options.idempotencyKey || this.generateKey(toolName, params);
-
-      // Execute via Open Engine (guarantees idempotency)
       const execution = await this.client.executeToolIdempotent(
         this.userId,
         this.sessionId,
         this.activeGoalId,
         toolName,
-        params,
-        idempotencyKey
+        params
+        // idempotency_key is now auto-generated by the server
       );
 
-      // Here we would actually call the OpenClaw tool
-      // For now, we log that it's tracked
-      console.log(`[OpenClawAgent] Tracked: ${toolName} (execution=${execution.id})`);
+      if (execution.status === 'completed' || execution.status === 'running') {
+        console.log(`[OpenClawAgent] Reused cached execution: ${execution.id}`);
+        return {
+          success: execution.status === 'completed',
+          data: execution.output,
+          executionId: execution.id
+        };
+      }
 
-      // TODO: Actually invoke the OpenClaw tool here
-      // This requires OpenClaw tool invocation API
-      
+      const toolResult = await this.invokeOpenClawTool({
+        tool: toolName,
+        action: 'json',
+        args: params
+      });
+
+      if (toolResult.success) {
+        await this.client.updateToolExecution({
+          ...execution,
+          status: 'completed',
+          output: toolResult.data as Record<string, unknown>,
+          completed_at: new Date().toISOString()
+        });
+      } else {
+        await this.client.updateToolExecution({
+          ...execution,
+          status: 'failed',
+          error: toolResult.error,
+          completed_at: new Date().toISOString()
+        });
+      }
+
       return {
-        success: true,
+        success: toolResult.success,
+        data: toolResult.data,
+        error: toolResult.error,
         executionId: execution.id
       };
 
@@ -142,72 +199,157 @@ export class OpenClawAgent {
   }
 
   /**
-   * Restore state from a previous session after crash/restart
+   * Invoke a tool via OpenClaw Gateway HTTP API
    */
-  async resumeSession(sessionId: string): Promise<void> {
+  private async invokeOpenClawTool(invokeOptions: OpenClawInvokeOptions): Promise<ToolResult> {
+    if (!this.openclawToken) {
+      return {
+        success: false,
+        error: 'OpenClaw token not configured'
+      };
+    }
+
     try {
-      const session = await this.client.getSession(sessionId);
-      this.sessionId = session.id;
-      
-      // Find active goal
-      const goals = await this.client.listPendingGoals(this.userId); // Need to implement
-      if (goals.length > 0) {
-        this.activeGoalId = goals[0].id;
+      const response = await fetch(`${this.openclawUrl}/tools/invoke`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.openclawToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tool: invokeOptions.tool,
+          action: invokeOptions.action || 'json',
+          args: invokeOptions.args || {},
+          sessionKey: invokeOptions.sessionKey || 'main',
+          dryRun: invokeOptions.dryRun || false
+        }),
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `HTTP error: ${response.status} ${response.statusText}`
+        };
       }
 
-      console.log(`[OpenClawAgent] Resumed session: ${sessionId}`);
-      
-      // Replay incomplete executions
-      await this.replayIncompleteExecutions();
+      const data = await response.json();
+      return {
+        success: true,
+        data
+      };
     } catch (error) {
-      console.error('[OpenClawAgent] Resume failed:', error);
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to invoke OpenClaw tool'
+      };
     }
   }
 
   /**
    * Replay incomplete executions from previous session
    */
-  private async replayIncompleteExecutions(): Promise<void> {
-    // Query pending executions
-    // Re-execute or resume based on state
-    console.log('[OpenClawAgent] Checking for incomplete work...');
+  async replayIncompleteExecutions(): Promise<void> {
+    if (!this.sessionId) {
+      console.log('[OpenClawAgent] No session to replay');
+      return;
+    }
+
+    try {
+      const goals = await this.client.listPendingGoals(this.sessionId);
+      
+      for (const goal of goals) {
+        const executions = await this.client.listToolExecutions(goal.id);
+        const incomplete = executions.filter(e => 
+          e.status === 'pending' || e.status === 'running'
+        );
+
+        for (const exec of incomplete) {
+          console.log(`[OpenClawAgent] Replaying incomplete: ${exec.tool_name} (${exec.id})`);
+          
+          const result = await this.invokeOpenClawTool({
+            tool: exec.tool_name,
+            action: 'json',
+            args: exec.tool_input as Record<string, unknown>
+          });
+
+          await this.client.updateToolExecution({
+            ...exec,
+            status: result.success ? 'completed' : 'failed',
+            output: result.success ? result.data as Record<string, unknown> : undefined,
+            error: result.error,
+            completed_at: new Date().toISOString()
+          });
+        }
+      }
+      
+      console.log('[OpenClawAgent] Replay complete');
+    } catch (error) {
+      console.error('[OpenClawAgent] Replay failed:', error);
+    }
   }
 
   /**
    * Get full audit trail of current session
    */
-  async getSessionAudit(): Promise<any> {
-    return await this.client.listSessions(this.userId); // Need to implement
+  async getSessionAudit(): Promise<{
+    session: Session;
+    goals: Goal[];
+    executions: ToolExecution[];
+  }> {
+    if (!this.sessionId) {
+      throw new Error('No active session');
+    }
+
+    const session = await this.client.getSession(this.sessionId);
+    const goals = await this.client.listPendingGoals(this.sessionId);
+    const executions: ToolExecution[] = [];
+    
+    for (const goal of goals) {
+      const goalExecutions = await this.client.listToolExecutions(goal.id);
+      executions.push(...goalExecutions);
+    }
+
+    return { session, goals, executions };
+  }
+
+  /**
+   * List all sessions for this user
+   */
+  async listSessions(): Promise<Session[]> {
+    return this.client.listSessions(this.userId);
+  }
+
+  /**
+   * Get all pending goals in current session
+   */
+  async listPendingGoals(): Promise<Goal[]> {
+    if (!this.sessionId) {
+      return [];
+    }
+    return this.client.listPendingGoals(this.sessionId);
   }
 
   /**
    * Generate deterministic idempotency key from tool + params
    */
-  private generateKey(toolName: string, params: Record<string, any>): string {
+  private generateKey(toolName: string, params: Record<string, unknown>): string {
     const paramsHash = JSON.stringify(params);
     return `${toolName}-${Buffer.from(paramsHash).toString('base64').slice(0, 16)}-${Date.now()}`;
   }
+
+  /**
+   * Get current session ID
+   */
+  getSessionId(): string {
+    return this.sessionId;
+  }
+
+  /**
+   * Get current goal ID
+   */
+  getGoalId(): string | null {
+    return this.activeGoalId;
+  }
 }
 
-// Example usage
-async function example() {
-  const agent = new OpenClawAgent({
-    userId: 'doremon',
-    engineUrl: 'http://127.0.0.1:3030'
-  });
-
-  await agent.init('twitter-automation-session');
-
-  // This will never execute twice, even on retry
-  const result = await agent.execute('web_search', {
-    query: 'open source AI agents'
-  }, {
-    goalName: 'Research AI agents',
-    idempotencyKey: 'research-ai-agents-20250227'
-  });
-
-  console.log('Result:', result);
-}
-
-export { OpenClawAgent };
+export default OpenClawAgent;

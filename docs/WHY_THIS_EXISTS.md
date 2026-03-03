@@ -8,8 +8,8 @@ Not because they're stupid. Because they have no memory.
 
 ### What Goes Wrong
 
-**The Duplicate Email**
-Agent tries to send an email. Network times out. Agent retries. User gets two emails. Or three. Or ten.
+**The Duplicate Action**
+Agent tries to run a tool (any tool - send email, call API, write file). Network times out. Agent retries. User gets duplicates. Or three. Or ten.
 
 **The Lost Task**
 Agent is working on "book a flight to NYC." Server restarts. Agent forgets what it was doing. User has to start over.
@@ -66,8 +66,9 @@ const goal = await client.createGoal(userId, sessionId, "Book flight");
 const exec = await client.executeToolIdempotent(
   userId, sessionId, goal.id,
   "search_flights",
-  { destination: "NYC" },
-  "search-nyc-flights-2024-03-15"  // This key prevents duplicates
+  { destination: "NYC" }
+  // No key needed - server auto-generates it!
+  // Key format: "auto:search_flights:20240315:abc123"
 );
 
 // If agent crashes and restarts:

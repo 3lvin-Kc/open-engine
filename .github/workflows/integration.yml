@@ -1,0 +1,52 @@
+name: Dashboard & Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # Verify dashboard HTML is valid
+  dashboard:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check HTML exists
+      run: test -f dashboard/index.html
+    
+    - name: Validate HTML structure
+      run: |
+        grep -q "<!DOCTYPE html>" dashboard/index.html
+        grep -q "</html>" dashboard/index.html
+
+  # Start server and run integration tests
+  integration:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-action@stable
+    
+    - name: Build server
+      run: cd state-engine && cargo build --release
+    
+    - name: Start server
+      run: |
+        cd state-engine
+        cargo run --release -- serve --database test.db &
+        sleep 10
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Run auto-key test
+      run: |
+        cd tests/auto-key-test
+        npm ci
+        npm test

@@ -1,0 +1,42 @@
+name: TypeScript CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        dir:
+          - ts-client
+          - integrations/openclaw
+          - tests/auto-key-test
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Install dependencies
+      run: |
+        cd ${{ matrix.dir }}
+        npm ci
+    
+    - name: Build
+      if: matrix.dir == 'ts-client'
+      run: |
+        cd ${{ matrix.dir }}
+        npm run build
+    
+    - name: Run tests
+      run: |
+        cd ${{ matrix.dir }}
+        npm test

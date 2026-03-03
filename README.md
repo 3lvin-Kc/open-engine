@@ -2,6 +2,8 @@
 
 **Persistent State & Session Management for AI Agents**
 
+> ⚠️ **OpenClaw Integration Status:** This project is not fully tested with OpenClaw yet. [See integration status](OPENCLAW_INTEGRATION_STATUS.md) before using.
+
 [![Status](https://img.shields.io/badge/status-working-brightgreen)]()
 [![API](https://img.shields.io/badge/API-v0.1-blue)](docs/API_VERSION.md)
 [![Idempotency](https://img.shields.io/badge/idempotency-tested_100_concurrent-green)]()

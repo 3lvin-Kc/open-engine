@@ -48,5 +48,5 @@ jobs:
     - name: Run auto-key test
       run: |
         cd tests/auto-key-test
-        npm ci
+        npm install
         npm test

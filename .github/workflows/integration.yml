@@ -37,8 +37,18 @@ jobs:
     - name: Start server
       run: |
         cd state-engine
-        cargo run --release -- serve --database test.db &
-        sleep 10
+        nohup cargo run --release -- serve --database test.db > server.log 2>&1 &
+        echo "Waiting for server to start..."
+        for i in {1..30}; do
+          if curl -s http://127.0.0.1:3030 > /dev/null 2>&1; then
+            echo "Server is ready!"
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "Server failed to start"
+        cat server.log
+        exit 1
     
     - name: Setup Node.js
       uses: actions/setup-node@v4

@@ -3,8 +3,8 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::models::*;
 use super::database::{Database, DatabaseError};
+use crate::models::*;
 
 pub struct GoalRepository {
     db: Database,
@@ -72,9 +72,12 @@ impl GoalRepository {
                 &goal.base.id.to_string(),
             ],
         )?;
-        
+
         if rows == 0 {
-            return Err(DatabaseError::NotFound(format!("Goal {} not found", goal.base.id)));
+            return Err(DatabaseError::NotFound(format!(
+                "Goal {} not found",
+                goal.base.id
+            )));
         }
         Ok(())
     }
@@ -158,8 +161,16 @@ impl GoalRepository {
             },
             context: serde_json::from_str(&context_str).unwrap_or(serde_json::json!({})),
             result: result_str.and_then(|s| serde_json::from_str(&s).ok()),
-            started_at: started_at_str.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
-            completed_at: completed_at_str.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
+            started_at: started_at_str.and_then(|s| {
+                DateTime::parse_from_rfc3339(&s)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            }),
+            completed_at: completed_at_str.and_then(|s| {
+                DateTime::parse_from_rfc3339(&s)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            }),
         })
     }
 }

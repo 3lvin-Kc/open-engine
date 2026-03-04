@@ -28,12 +28,12 @@ enum Commands {
         #[arg(short, long, help = "Database file path", value_hint = ValueHint::FilePath)]
         database: Option<std::path::PathBuf>,
     },
-    
+
     /// Replay a session and show all actions
     Replay {
         #[arg(short, long, help = "Database file path", value_hint = ValueHint::FilePath)]
         database: std::path::PathBuf,
-        
+
         #[arg(short, long, help = "Session ID to replay")]
         session: String,
     },
@@ -68,9 +68,7 @@ async fn main() -> anyhow::Result<()> {
 
             let module = create_rpc_module(db);
 
-            let server = ServerBuilder::new()
-                .build(addr)
-                .await?;
+            let server = ServerBuilder::new().build(addr).await?;
 
             let _handle = server.start(module);
 
@@ -87,25 +85,27 @@ async fn main() -> anyhow::Result<()> {
 }
 
 fn replay_session(db_path: std::path::PathBuf, session_id: String) -> anyhow::Result<()> {
+    use openclaw_state_engine::persistence::{
+        GoalRepository, SessionRepository, ToolExecutionRepository,
+    };
     use uuid::Uuid;
-    use openclaw_state_engine::persistence::{SessionRepository, GoalRepository, ToolExecutionRepository};
-    
+
     let config = DatabaseConfig {
         path: db_path,
         ..Default::default()
     };
-    
+
     let db = Database::open(config)?;
-    
-    let session_uuid = Uuid::parse_str(&session_id)
-        .map_err(|e| anyhow::anyhow!("Invalid session ID: {}", e))?;
-    
+
+    let session_uuid =
+        Uuid::parse_str(&session_id).map_err(|e| anyhow::anyhow!("Invalid session ID: {}", e))?;
+
     let session_repo = SessionRepository::new(db.clone());
     let goal_repo = GoalRepository::new(db.clone());
     let tool_repo = ToolExecutionRepository::new(db.clone());
-    
+
     let session = session_repo.get(session_uuid)?;
-    
+
     println!("╔════════════════════════════════════════════════════════════════╗");
     println!("║                    SESSION REPLAY                              ║");
     println!("╚════════════════════════════════════════════════════════════════╝");
@@ -113,16 +113,25 @@ fn replay_session(db_path: std::path::PathBuf, session_id: String) -> anyhow::Re
     println!("Session ID:     {}", session.base.id);
     println!("User ID:        {}", session.user_id);
     println!("Status:         {:?}", session.status);
-    println!("Created:        {}", session.base.created_at.format("%Y-%m-%d %H:%M:%S UTC"));
-    println!("Last Activity:  {}", session.last_activity_at.format("%Y-%m-%d %H:%M:%S UTC"));
+    println!(
+        "Created:        {}",
+        session.base.created_at.format("%Y-%m-%d %H:%M:%S UTC")
+    );
+    println!(
+        "Last Activity:  {}",
+        session.last_activity_at.format("%Y-%m-%d %H:%M:%S UTC")
+    );
     println!();
-    
+
     let goals = goal_repo.list_for_session(session_uuid)?;
-    
+
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ GOALS ({})                                                        │", goals.len());
+    println!(
+        "│ GOALS ({})                                                        │",
+        goals.len()
+    );
     println!("└─────────────────────────────────────────────────────────────────┘");
-    
+
     for (i, goal) in goals.iter().enumerate() {
         println!();
         println!("  Goal #{}: {}", i + 1, goal.title);
@@ -138,51 +147,65 @@ fn replay_session(db_path: std::path::PathBuf, session_id: String) -> anyhow::Re
             println!("  Started:     {}", started.format("%Y-%m-%d %H:%M:%S UTC"));
         }
         if let Some(ref completed) = goal.completed_at {
-            println!("  Completed:   {}", completed.format("%Y-%m-%d %H:%M:%S UTC"));
+            println!(
+                "  Completed:   {}",
+                completed.format("%Y-%m-%d %H:%M:%S UTC")
+            );
         }
-        
+
         let executions = tool_repo.list_for_goal(goal.base.id)?;
-        
+
         if !executions.is_empty() {
             println!();
             println!("  ┌── TOOL EXECUTIONS ({}) ──", executions.len());
-            
+
             for exec in &executions {
                 println!("  │");
                 println!("  │  Tool:      {}", exec.tool_name);
                 println!("  │  Status:    {:?}", exec.status);
-                println!("  │  Input:     {}", serde_json::to_string(&exec.tool_input).unwrap_or_else(|_| "N/A".to_string()));
-                
+                println!(
+                    "  │  Input:     {}",
+                    serde_json::to_string(&exec.tool_input).unwrap_or_else(|_| "N/A".to_string())
+                );
+
                 if let Some(ref output) = exec.output {
-                    let output_str = serde_json::to_string(output).unwrap_or_else(|_| "N/A".to_string());
+                    let output_str =
+                        serde_json::to_string(output).unwrap_or_else(|_| "N/A".to_string());
                     if output_str.len() > 60 {
                         println!("  │  Output:    {}...", &output_str[..60]);
                     } else {
                         println!("  │  Output:    {}", output_str);
                     }
                 }
-                
+
                 if let Some(ref error) = exec.error {
                     println!("  │  Error:     {}", error);
                 }
-                
+
                 if let Some(ref key) = exec.idempotency_key {
                     println!("  │  Idempotency Key: {}", key);
                 }
-                
+
                 let created = exec.base.created_at.format("%H:%M:%S");
                 println!("  │  Time:      {}", created);
             }
             println!("  └───────────────────────────");
         }
     }
-    
+
     println!();
     println!("══════════════════════════════════════════════════════════════════");
-    println!("Replay complete. {} goal(s), {} execution(s) total.", 
+    println!(
+        "Replay complete. {} goal(s), {} execution(s) total.",
         goals.len(),
-        goals.iter().map(|g| tool_repo.list_for_goal(g.base.id).map(|e| e.len()).unwrap_or(0)).sum::<usize>()
+        goals
+            .iter()
+            .map(|g| tool_repo
+                .list_for_goal(g.base.id)
+                .map(|e| e.len())
+                .unwrap_or(0))
+            .sum::<usize>()
     );
-    
+
     Ok(())
 }

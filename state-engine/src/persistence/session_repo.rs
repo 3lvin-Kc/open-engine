@@ -3,8 +3,8 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::models::*;
 use super::database::{Database, DatabaseError};
+use crate::models::*;
 
 pub struct SessionRepository {
     db: Database,
@@ -36,15 +36,16 @@ impl SessionRepository {
     }
 
     pub fn get(&self, id: Uuid) -> Result<Session, DatabaseError> {
-        self.db.query(
-            "SELECT id, user_id, channel_id, status, metadata, context, last_activity_at,
+        self.db
+            .query(
+                "SELECT id, user_id, channel_id, status, metadata, context, last_activity_at,
              created_at, updated_at FROM sessions WHERE id = ?",
-            &[&id.to_string()],
-            |row| Self::row_to_session(row),
-        )?
-        .into_iter()
-        .next()
-        .ok_or_else(|| DatabaseError::NotFound(format!("Session {} not found", id)))
+                &[&id.to_string()],
+                |row| Self::row_to_session(row),
+            )?
+            .into_iter()
+            .next()
+            .ok_or_else(|| DatabaseError::NotFound(format!("Session {} not found", id)))
     }
 
     pub fn get_active_for_user(&self, user_id: Uuid) -> Result<Option<Session>, DatabaseError> {
@@ -55,7 +56,7 @@ impl SessionRepository {
             &[&user_id.to_string()],
             |row| Self::row_to_session(row),
         )?;
-        
+
         Ok(sessions.into_iter().next())
     }
 
@@ -73,9 +74,12 @@ impl SessionRepository {
                 &session.base.id.to_string(),
             ],
         )?;
-        
+
         if rows == 0 {
-            return Err(DatabaseError::NotFound(format!("Session {} not found", session.base.id)));
+            return Err(DatabaseError::NotFound(format!(
+                "Session {} not found",
+                session.base.id
+            )));
         }
         Ok(())
     }

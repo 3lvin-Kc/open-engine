@@ -2,9 +2,9 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use uuid::Uuid;
 
 use super::{Entity, EntityBase};
 
@@ -86,7 +86,12 @@ impl ToolExecution {
         tool_name.hash(&mut hasher);
         tool_input.hash(&mut hasher);
         let hash = hasher.finish();
-        format!("auto:{}-{}:{:x}", tool_name, chrono::Utc::now().format("%Y%m%d%H%M%S"), hash)
+        format!(
+            "auto:{}-{}:{:x}",
+            tool_name,
+            chrono::Utc::now().format("%Y%m%d%H%M%S"),
+            hash
+        )
     }
 
     pub fn start(&mut self) {

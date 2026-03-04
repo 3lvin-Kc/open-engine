@@ -4,8 +4,8 @@ use chrono::{DateTime, Utc};
 use rusqlite::params;
 use uuid::Uuid;
 
-use crate::models::*;
 use super::database::{Database, DatabaseError};
+use crate::models::*;
 
 /// Result of idempotent create operation
 #[derive(Debug)]
@@ -51,59 +51,66 @@ impl ToolExecutionRepository {
     }
 
     pub fn get(&self, id: Uuid) -> Result<ToolExecution, DatabaseError> {
-        self.db.query(
-            "SELECT id, goal_id, session_id, user_id, tool_name, tool_input, status, output,
-             error, idempotency_key, started_at, completed_at, created_at, updated_at 
+        self.db
+            .query(
+                "SELECT id, goal_id, session_id, user_id, tool_name, tool_input, status, output,
+             error, idempotency_key, started_at, completed_at, created_at, updated_at
              FROM tool_executions WHERE id = ?",
-            &[&id.to_string()],
-            |row| Self::row_to_execution(row),
-        )?
-        .into_iter()
-        .next()
-        .ok_or_else(|| DatabaseError::NotFound(format!("ToolExecution {} not found", id)))
+                &[&id.to_string()],
+                |row| Self::row_to_execution(row),
+            )?
+            .into_iter()
+            .next()
+            .ok_or_else(|| DatabaseError::NotFound(format!("ToolExecution {} not found", id)))
     }
 
-    pub fn find_by_idempotency_key(&self, key: &str) -> Result<Option<ToolExecution>, DatabaseError> {
+    pub fn find_by_idempotency_key(
+        &self,
+        key: &str,
+    ) -> Result<Option<ToolExecution>, DatabaseError> {
         let executions = self.db.query(
             "SELECT id, goal_id, session_id, user_id, tool_name, tool_input, status, output,
-             error, idempotency_key, started_at, completed_at, created_at, updated_at 
+             error, idempotency_key, started_at, completed_at, created_at, updated_at
              FROM tool_executions WHERE idempotency_key = ?",
             &[&key.to_string()],
             |row| Self::row_to_execution(row),
         )?;
-        
+
         Ok(executions.into_iter().next())
     }
 
     /// Create a tool execution with hard idempotency enforcement.
-    /// 
+    ///
     /// If an execution with the same idempotency_key already exists,
     /// returns that existing execution instead of creating a new one.
     /// This is atomic and race-condition safe.
-    pub fn create_idempotent(&self, execution: &ToolExecution) -> Result<IdempotentCreateResult, DatabaseError> {
+    pub fn create_idempotent(
+        &self,
+        execution: &ToolExecution,
+    ) -> Result<IdempotentCreateResult, DatabaseError> {
         // If no idempotency key, just create normally
         if execution.idempotency_key.is_none() {
             self.create(execution)?;
             return Ok(IdempotentCreateResult::Created(execution.clone()));
         }
-        
+
         let key = execution.idempotency_key.as_ref().unwrap();
-        
+
         // Use a transaction for atomic check-and-insert
         self.db.transaction(|conn| {
             // First check if exists
             let existing: Option<ToolExecution> = conn.query_row(
                 "SELECT id, goal_id, session_id, user_id, tool_name, tool_input, status, output,
-                 error, idempotency_key, started_at, completed_at, created_at, updated_at 
+                 error, idempotency_key, started_at, completed_at, created_at, updated_at
                  FROM tool_executions WHERE idempotency_key = ?",
                 [key],
                 |row| Self::row_to_execution(row),
             ).ok();
-            
+
             if let Some(existing) = existing {
                 return Ok(IdempotentCreateResult::Duplicate(existing));
             }
-            
+
             // Insert new execution
             conn.execute(
                 "INSERT INTO tool_executions (id, goal_id, session_id, user_id, tool_name, tool_input,
@@ -126,7 +133,7 @@ impl ToolExecutionRepository {
                     execution.base.updated_at.to_rfc3339(),
                 ],
             ).map_err(|e| DatabaseError::QueryError(e.to_string()))?;
-            
+
             Ok(IdempotentCreateResult::Created(execution.clone()))
         })
     }
@@ -145,9 +152,12 @@ impl ToolExecutionRepository {
                 &execution.base.id.to_string(),
             ],
         )?;
-        
+
         if rows == 0 {
-            return Err(DatabaseError::NotFound(format!("ToolExecution {} not found", execution.base.id)));
+            return Err(DatabaseError::NotFound(format!(
+                "ToolExecution {} not found",
+                execution.base.id
+            )));
         }
         Ok(())
     }
@@ -155,7 +165,7 @@ impl ToolExecutionRepository {
     pub fn list_for_goal(&self, goal_id: Uuid) -> Result<Vec<ToolExecution>, DatabaseError> {
         self.db.query(
             "SELECT id, goal_id, session_id, user_id, tool_name, tool_input, status, output,
-             error, idempotency_key, started_at, completed_at, created_at, updated_at 
+             error, idempotency_key, started_at, completed_at, created_at, updated_at
              FROM tool_executions WHERE goal_id = ? ORDER BY created_at ASC",
             &[&goal_id.to_string()],
             |row| Self::row_to_execution(row),
@@ -207,8 +217,16 @@ impl ToolExecutionRepository {
             output: output_str.and_then(|s| serde_json::from_str(&s).ok()),
             error,
             idempotency_key,
-            started_at: started_at_str.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
-            completed_at: completed_at_str.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
+            started_at: started_at_str.and_then(|s| {
+                DateTime::parse_from_rfc3339(&s)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            }),
+            completed_at: completed_at_str.and_then(|s| {
+                DateTime::parse_from_rfc3339(&s)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            }),
         })
     }
 }

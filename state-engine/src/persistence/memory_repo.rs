@@ -3,8 +3,8 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::models::*;
 use super::database::{Database, DatabaseError};
+use crate::models::*;
 
 pub struct MemoryRepository {
     db: Database,
@@ -17,7 +17,7 @@ impl MemoryRepository {
 
     pub fn create(&self, memory: &Memory) -> Result<(), DatabaseError> {
         let tags_json = serde_json::to_string(&memory.tags).unwrap_or_else(|_| "[]".to_string());
-        
+
         self.db.execute(
             "INSERT INTO memories (id, user_id, memory_type, importance, content, embedding,
              source_session_id, source_tool_execution_id, tags, expires_at, created_at, updated_at)
@@ -28,7 +28,10 @@ impl MemoryRepository {
                 &format!("{:?}", memory.memory_type).to_lowercase(),
                 &format!("{:?}", memory.importance).to_lowercase(),
                 &memory.content,
-                &memory.embedding.as_ref().map(|e| bincode::serialize(e).unwrap_or_default()),
+                &memory
+                    .embedding
+                    .as_ref()
+                    .map(|e| bincode::serialize(e).unwrap_or_default()),
                 &memory.source_session_id.map(|id| id.to_string()),
                 &memory.source_tool_execution_id.map(|id| id.to_string()),
                 &tags_json,
@@ -55,7 +58,7 @@ impl MemoryRepository {
 
     pub fn update(&self, memory: &Memory) -> Result<(), DatabaseError> {
         let tags_json = serde_json::to_string(&memory.tags).unwrap_or_else(|_| "[]".to_string());
-        
+
         let rows = self.db.execute(
             "UPDATE memories SET memory_type = ?, importance = ?, content = ?, embedding = ?,
              source_session_id = ?, source_tool_execution_id = ?, tags = ?, expires_at = ?,
@@ -64,7 +67,10 @@ impl MemoryRepository {
                 &format!("{:?}", memory.memory_type).to_lowercase(),
                 &format!("{:?}", memory.importance).to_lowercase(),
                 &memory.content,
-                &memory.embedding.as_ref().map(|e| bincode::serialize(e).unwrap_or_default()),
+                &memory
+                    .embedding
+                    .as_ref()
+                    .map(|e| bincode::serialize(e).unwrap_or_default()),
                 &memory.source_session_id.map(|id| id.to_string()),
                 &memory.source_tool_execution_id.map(|id| id.to_string()),
                 &tags_json,
@@ -73,9 +79,12 @@ impl MemoryRepository {
                 &memory.base.id.to_string(),
             ],
         )?;
-        
+
         if rows == 0 {
-            return Err(DatabaseError::NotFound(format!("Memory {} not found", memory.base.id)));
+            return Err(DatabaseError::NotFound(format!(
+                "Memory {} not found",
+                memory.base.id
+            )));
         }
         Ok(())
     }
@@ -90,18 +99,29 @@ impl MemoryRepository {
         )
     }
 
-    pub fn list_by_type(&self, user_id: Uuid, memory_type: MemoryType, limit: usize) -> Result<Vec<Memory>, DatabaseError> {
+    pub fn list_by_type(
+        &self,
+        user_id: Uuid,
+        memory_type: MemoryType,
+        limit: usize,
+    ) -> Result<Vec<Memory>, DatabaseError> {
         self.db.query(
             "SELECT id, user_id, memory_type, importance, content, embedding, source_session_id,
              source_tool_execution_id, tags, expires_at, created_at, updated_at 
              FROM memories WHERE user_id = ? AND memory_type = ? ORDER BY created_at DESC LIMIT ?",
-            &[&user_id.to_string(), &format!("{:?}", memory_type).to_lowercase(), &limit.to_string()],
+            &[
+                &user_id.to_string(),
+                &format!("{:?}", memory_type).to_lowercase(),
+                &limit.to_string(),
+            ],
             |row| Self::row_to_memory(row),
         )
     }
 
     pub fn delete(&self, id: Uuid) -> Result<(), DatabaseError> {
-        let rows = self.db.execute("DELETE FROM memories WHERE id = ?", &[&id.to_string()])?;
+        let rows = self
+            .db
+            .execute("DELETE FROM memories WHERE id = ?", &[&id.to_string()])?;
         if rows == 0 {
             return Err(DatabaseError::NotFound(format!("Memory {} not found", id)));
         }
@@ -130,9 +150,8 @@ impl MemoryRepository {
         let created_at_str: String = row.get(10)?;
         let updated_at_str: String = row.get(11)?;
 
-        let embedding: Option<Vec<f32>> = embedding_bytes.and_then(|bytes| {
-            bincode::deserialize(&bytes).ok()
-        });
+        let embedding: Option<Vec<f32>> =
+            embedding_bytes.and_then(|bytes| bincode::deserialize(&bytes).ok());
 
         let created_at = DateTime::parse_from_rfc3339(&created_at_str)
             .map(|dt| dt.with_timezone(&Utc))
@@ -163,9 +182,14 @@ impl MemoryRepository {
             content,
             embedding,
             source_session_id: source_session_id_str.map(|s| Uuid::parse_str(&s).unwrap()),
-            source_tool_execution_id: source_tool_execution_id_str.map(|s| Uuid::parse_str(&s).unwrap()),
+            source_tool_execution_id: source_tool_execution_id_str
+                .map(|s| Uuid::parse_str(&s).unwrap()),
             tags: serde_json::from_str(&tags_str).unwrap_or_default(),
-            expires_at: expires_at_str.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
+            expires_at: expires_at_str.and_then(|s| {
+                DateTime::parse_from_rfc3339(&s)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            }),
         })
     }
 }

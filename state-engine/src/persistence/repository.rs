@@ -3,8 +3,8 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::models::*;
 use super::database::{Database, DatabaseError};
+use crate::models::*;
 
 /// Repository for User entities
 pub struct UserRepository {
@@ -72,15 +72,20 @@ impl UserRepository {
                 &user.base.id.to_string(),
             ],
         )?;
-        
+
         if rows == 0 {
-            return Err(DatabaseError::NotFound(format!("User {} not found", user.base.id)));
+            return Err(DatabaseError::NotFound(format!(
+                "User {} not found",
+                user.base.id
+            )));
         }
         Ok(())
     }
 
     pub fn delete(&self, id: Uuid) -> Result<(), DatabaseError> {
-        let rows = self.db.execute("DELETE FROM users WHERE id = ?", &[&id.to_string()])?;
+        let rows = self
+            .db
+            .execute("DELETE FROM users WHERE id = ?", &[&id.to_string()])?;
         if rows == 0 {
             return Err(DatabaseError::NotFound(format!("User {} not found", id)));
         }
@@ -94,7 +99,7 @@ impl UserRepository {
         } else {
             "SELECT id, username, display_name, email, metadata, active, created_at, updated_at FROM users"
         };
-        
+
         self.db.query(sql, &[], |row| Self::row_to_user(row))
     }
 

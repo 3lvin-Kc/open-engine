@@ -1,20 +1,20 @@
 //! State data models for OpenClaw
-//! 
+//!
 //! This module defines the strongly-typed schemas for all state entities.
 
-mod user;
-mod session;
-mod goal;
-mod tool_execution;
-mod memory;
 mod channel;
+mod goal;
+mod memory;
+mod session;
+mod tool_execution;
+mod user;
 
-pub use user::*;
-pub use session::*;
-pub use goal::*;
-pub use tool_execution::*;
-pub use memory::*;
 pub use channel::*;
+pub use goal::*;
+pub use memory::*;
+pub use session::*;
+pub use tool_execution::*;
+pub use user::*;
 
 /// Schema version for migrations
 pub const CURRENT_SCHEMA_VERSION: u32 = 1;

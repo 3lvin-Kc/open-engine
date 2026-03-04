@@ -55,7 +55,12 @@ pub struct Channel {
 }
 
 impl Channel {
-    pub fn new(user_id: Uuid, channel_type: ChannelType, channel_name: String, channel_identifier: String) -> Self {
+    pub fn new(
+        user_id: Uuid,
+        channel_type: ChannelType,
+        channel_name: String,
+        channel_identifier: String,
+    ) -> Self {
         Self {
             base: EntityBase::new(),
             user_id,

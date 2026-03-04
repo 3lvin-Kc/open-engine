@@ -15,155 +15,343 @@ impl StateRpc {
         Self { db }
     }
 
-    pub fn create_user(&self, username: String, display_name: Option<String>, email: Option<String>) -> Result<User, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn create_user(
+        &self,
+        username: String,
+        display_name: Option<String>,
+        email: Option<String>,
+    ) -> Result<User, jsonrpsee::types::ErrorObject<'static>> {
         let user = User::new(username)
             .with_display_name(display_name.unwrap_or_default())
             .with_email(email.unwrap_or_default());
-        
+
         let repo = crate::persistence::UserRepository::new(self.db.clone());
-        repo.create(&user).map_err(|e| jsonrpsee::types::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        repo.create(&user).map_err(|e| {
+            jsonrpsee::types::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })?;
         Ok(user)
     }
 
     pub fn get_user(&self, id: Uuid) -> Result<User, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::UserRepository::new(self.db.clone());
-        repo.get(id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.get(id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn create_channel(&self, user_id: Uuid, channel_type: ChannelType, channel_name: String, channel_identifier: String) -> Result<Channel, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn create_channel(
+        &self,
+        user_id: Uuid,
+        channel_type: ChannelType,
+        channel_name: String,
+        channel_identifier: String,
+    ) -> Result<Channel, jsonrpsee::types::ErrorObject<'static>> {
         let channel = Channel::new(user_id, channel_type, channel_name, channel_identifier);
         let repo = crate::persistence::ChannelRepository::new(self.db.clone());
-        repo.create(&channel).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        repo.create(&channel).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })?;
         Ok(channel)
     }
 
     pub fn get_channel(&self, id: Uuid) -> Result<Channel, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::ChannelRepository::new(self.db.clone());
-        repo.get(id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.get(id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn update_channel(&self, channel: Channel) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
+    pub fn update_channel(
+        &self,
+        channel: Channel,
+    ) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::ChannelRepository::new(self.db.clone());
-        repo.update(&channel).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.update(&channel).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn list_channels(&self, user_id: Uuid) -> Result<Vec<Channel>, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn list_channels(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<Channel>, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::ChannelRepository::new(self.db.clone());
-        repo.list_for_user(user_id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.list_for_user(user_id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn create_session(&self, user_id: Uuid, channel_id: Option<Uuid>) -> Result<Session, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn create_session(
+        &self,
+        user_id: Uuid,
+        channel_id: Option<Uuid>,
+    ) -> Result<Session, jsonrpsee::types::ErrorObject<'static>> {
         let mut session = Session::new(user_id);
         if let Some(cid) = channel_id {
             session = session.with_channel(cid);
         }
         let repo = crate::persistence::SessionRepository::new(self.db.clone());
-        repo.create(&session).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        repo.create(&session).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })?;
         Ok(session)
     }
 
     pub fn get_session(&self, id: Uuid) -> Result<Session, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::SessionRepository::new(self.db.clone());
-        repo.get(id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.get(id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn get_active_session(&self, user_id: Uuid) -> Result<Option<Session>, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn get_active_session(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Option<Session>, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::SessionRepository::new(self.db.clone());
-        repo.get_active_for_user(user_id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.get_active_for_user(user_id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn list_sessions(&self, user_id: Uuid) -> Result<Vec<Session>, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn list_sessions(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<Session>, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::SessionRepository::new(self.db.clone());
-        repo.list_for_user(user_id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.list_for_user(user_id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn update_session(&self, session: Session) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
+    pub fn update_session(
+        &self,
+        session: Session,
+    ) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::SessionRepository::new(self.db.clone());
-        repo.update(&session).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.update(&session).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn create_goal(&self, user_id: Uuid, session_id: Uuid, title: String, description: Option<String>) -> Result<Goal, jsonrpsee::types::ErrorObject<'static>> {
-        let goal = Goal::new(user_id, session_id, title)
-            .with_description(description.unwrap_or_default());
+    pub fn create_goal(
+        &self,
+        user_id: Uuid,
+        session_id: Uuid,
+        title: String,
+        description: Option<String>,
+    ) -> Result<Goal, jsonrpsee::types::ErrorObject<'static>> {
+        let goal =
+            Goal::new(user_id, session_id, title).with_description(description.unwrap_or_default());
         let repo = crate::persistence::GoalRepository::new(self.db.clone());
-        repo.create(&goal).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        repo.create(&goal).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })?;
         Ok(goal)
     }
 
     pub fn get_goal(&self, id: Uuid) -> Result<Goal, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::GoalRepository::new(self.db.clone());
-        repo.get(id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.get(id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
     pub fn update_goal(&self, goal: Goal) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::GoalRepository::new(self.db.clone());
-        repo.update(&goal).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.update(&goal).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn list_pending_goals(&self, session_id: Uuid) -> Result<Vec<Goal>, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn list_pending_goals(
+        &self,
+        session_id: Uuid,
+    ) -> Result<Vec<Goal>, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::GoalRepository::new(self.db.clone());
-        repo.list_pending_for_session(session_id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.list_pending_for_session(session_id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn create_tool_execution(&self, user_id: Uuid, session_id: Uuid, goal_id: Uuid, tool_name: String, tool_input: serde_json::Value) -> Result<ToolExecution, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn create_tool_execution(
+        &self,
+        user_id: Uuid,
+        session_id: Uuid,
+        goal_id: Uuid,
+        tool_name: String,
+        tool_input: serde_json::Value,
+    ) -> Result<ToolExecution, jsonrpsee::types::ErrorObject<'static>> {
         let execution = ToolExecution::new(user_id, session_id, goal_id, tool_name, tool_input);
         let repo = crate::persistence::ToolExecutionRepository::new(self.db.clone());
-        repo.create(&execution).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        repo.create(&execution).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })?;
         Ok(execution)
     }
 
     /// Create a tool execution with hard idempotency enforcement.
     /// Returns existing execution if same idempotency_key was used before.
     pub fn execute_tool_idempotent(
-        &self, 
-        user_id: Uuid, 
-        session_id: Uuid, 
-        goal_id: Uuid, 
-        tool_name: String, 
+        &self,
+        user_id: Uuid,
+        session_id: Uuid,
+        goal_id: Uuid,
+        tool_name: String,
         tool_input: serde_json::Value,
-        idempotency_key: String
+        idempotency_key: String,
     ) -> Result<ToolExecution, jsonrpsee::types::ErrorObject<'static>> {
         let execution = ToolExecution::new(user_id, session_id, goal_id, tool_name, tool_input)
             .with_idempotency_key(idempotency_key);
-        
+
         let repo = crate::persistence::ToolExecutionRepository::new(self.db.clone());
-        let result = repo.create_idempotent(&execution)
-            .map_err(|e| jsonrpsee::types::ErrorObject::owned(
-                jsonrpsee::types::error::INTERNAL_ERROR_CODE, 
-                e.to_string(), 
-                None::<()>
-            ))?;
-        
+        let result = repo.create_idempotent(&execution).map_err(|e| {
+            jsonrpsee::types::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })?;
+
         match result {
             crate::persistence::IdempotentCreateResult::Created(exec) => Ok(exec),
             crate::persistence::IdempotentCreateResult::Duplicate(existing) => {
-                tracing::info!("Duplicate tool execution prevented: {:?}", existing.idempotency_key);
+                tracing::info!(
+                    "Duplicate tool execution prevented: {:?}",
+                    existing.idempotency_key
+                );
                 Ok(existing)
             }
         }
     }
 
-    pub fn get_tool_execution(&self, id: Uuid) -> Result<ToolExecution, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn get_tool_execution(
+        &self,
+        id: Uuid,
+    ) -> Result<ToolExecution, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::ToolExecutionRepository::new(self.db.clone());
-        repo.get(id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.get(id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn find_by_idempotency_key(&self, key: String) -> Result<Option<ToolExecution>, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn find_by_idempotency_key(
+        &self,
+        key: String,
+    ) -> Result<Option<ToolExecution>, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::ToolExecutionRepository::new(self.db.clone());
-        repo.find_by_idempotency_key(&key).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.find_by_idempotency_key(&key).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn update_tool_execution(&self, execution: ToolExecution) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
+    pub fn update_tool_execution(
+        &self,
+        execution: ToolExecution,
+    ) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::ToolExecutionRepository::new(self.db.clone());
-        repo.update(&execution).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.update(&execution).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn list_tool_executions(&self, goal_id: Uuid) -> Result<Vec<ToolExecution>, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn list_tool_executions(
+        &self,
+        goal_id: Uuid,
+    ) -> Result<Vec<ToolExecution>, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::ToolExecutionRepository::new(self.db.clone());
-        repo.list_for_goal(goal_id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.list_for_goal(goal_id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn create_memory(&self, user_id: Uuid, content: String, importance: Option<MemoryImportance>, tags: Option<Vec<String>>) -> Result<Memory, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn create_memory(
+        &self,
+        user_id: Uuid,
+        content: String,
+        importance: Option<MemoryImportance>,
+        tags: Option<Vec<String>>,
+    ) -> Result<Memory, jsonrpsee::types::ErrorObject<'static>> {
         let mut memory = Memory::new_short_term(user_id, content);
         if let Some(imp) = importance {
             memory = memory.with_importance(imp);
@@ -172,23 +360,55 @@ impl StateRpc {
             memory = memory.with_tags(t);
         }
         let repo = crate::persistence::MemoryRepository::new(self.db.clone());
-        repo.create(&memory).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))?;
+        repo.create(&memory).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })?;
         Ok(memory)
     }
 
     pub fn get_memory(&self, id: Uuid) -> Result<Memory, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::MemoryRepository::new(self.db.clone());
-        repo.get(id).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.get(id).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn update_memory(&self, memory: Memory) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
+    pub fn update_memory(
+        &self,
+        memory: Memory,
+    ) -> Result<(), jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::MemoryRepository::new(self.db.clone());
-        repo.update(&memory).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.update(&memory).map_err(|e| {
+            jsonrpsee::types::error::ErrorObject::owned(
+                jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                e.to_string(),
+                None::<()>,
+            )
+        })
     }
 
-    pub fn list_memories(&self, user_id: Uuid, limit: Option<usize>) -> Result<Vec<Memory>, jsonrpsee::types::ErrorObject<'static>> {
+    pub fn list_memories(
+        &self,
+        user_id: Uuid,
+        limit: Option<usize>,
+    ) -> Result<Vec<Memory>, jsonrpsee::types::ErrorObject<'static>> {
         let repo = crate::persistence::MemoryRepository::new(self.db.clone());
-        repo.list_for_user(user_id, limit.unwrap_or(50)).map_err(|e| jsonrpsee::types::error::ErrorObject::owned(jsonrpsee::types::error::INTERNAL_ERROR_CODE, e.to_string(), None::<()>))
+        repo.list_for_user(user_id, limit.unwrap_or(50))
+            .map_err(|e| {
+                jsonrpsee::types::error::ErrorObject::owned(
+                    jsonrpsee::types::error::INTERNAL_ERROR_CODE,
+                    e.to_string(),
+                    None::<()>,
+                )
+            })
     }
 }
 
@@ -213,7 +433,12 @@ pub fn create_rpc_module(db: Database) -> RpcModule<StateRpc> {
     module
         .register_method("create_channel", |params, state| {
             let p: CreateChannelParams = params.parse()?;
-            state.create_channel(p.user_id, p.channel_type, p.channel_name, p.channel_identifier)
+            state.create_channel(
+                p.user_id,
+                p.channel_type,
+                p.channel_name,
+                p.channel_identifier,
+            )
         })
         .unwrap();
 
@@ -304,7 +529,13 @@ pub fn create_rpc_module(db: Database) -> RpcModule<StateRpc> {
     module
         .register_method("create_tool_execution", |params, state| {
             let p: CreateToolExecutionParams = params.parse()?;
-            state.create_tool_execution(p.user_id, p.session_id, p.goal_id, p.tool_name, p.tool_input)
+            state.create_tool_execution(
+                p.user_id,
+                p.session_id,
+                p.goal_id,
+                p.tool_name,
+                p.tool_input,
+            )
         })
         .unwrap();
 
@@ -348,7 +579,14 @@ pub fn create_rpc_module(db: Database) -> RpcModule<StateRpc> {
                     &p.tool_input,
                 )
             });
-            state.execute_tool_idempotent(p.user_id, p.session_id, p.goal_id, p.tool_name, p.tool_input, key)
+            state.execute_tool_idempotent(
+                p.user_id,
+                p.session_id,
+                p.goal_id,
+                p.tool_name,
+                p.tool_input,
+                key,
+            )
         })
         .unwrap();
 

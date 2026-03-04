@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use parking_lot::RwLock;
 use dashmap::DashMap;
+use parking_lot::RwLock;
 
 /// Read-write lock wrapper for entity-level locking
 pub struct EntityLock<K: Eq + std::hash::Hash + Clone> {
@@ -27,7 +27,10 @@ impl<K: Eq + std::hash::Hash + Clone> EntityLock<K> {
     where
         F: FnOnce() -> R,
     {
-        let lock = self.locks.entry(key.clone()).or_insert_with(|| RwLock::new(()));
+        let lock = self
+            .locks
+            .entry(key.clone())
+            .or_insert_with(|| RwLock::new(()));
         let _guard = lock.read();
         f()
     }
@@ -36,7 +39,10 @@ impl<K: Eq + std::hash::Hash + Clone> EntityLock<K> {
     where
         F: FnOnce() -> R,
     {
-        let lock = self.locks.entry(key.clone()).or_insert_with(|| RwLock::new(()));
+        let lock = self
+            .locks
+            .entry(key.clone())
+            .or_insert_with(|| RwLock::new(()));
         let _guard = lock.write();
         f()
     }

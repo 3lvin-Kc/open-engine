@@ -3,8 +3,8 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::models::*;
 use super::database::{Database, DatabaseError};
+use crate::models::*;
 
 pub struct ChannelRepository {
     db: Database,
@@ -38,19 +38,24 @@ impl ChannelRepository {
     }
 
     pub fn get(&self, id: Uuid) -> Result<Channel, DatabaseError> {
-        self.db.query(
-            "SELECT id, user_id, channel_type, channel_name, channel_identifier, status,
+        self.db
+            .query(
+                "SELECT id, user_id, channel_type, channel_name, channel_identifier, status,
              metadata, config, last_message_at, created_at, updated_at 
              FROM channels WHERE id = ?",
-            &[&id.to_string()],
-            |row| Self::row_to_channel(row),
-        )?
-        .into_iter()
-        .next()
-        .ok_or_else(|| DatabaseError::NotFound(format!("Channel {} not found", id)))
+                &[&id.to_string()],
+                |row| Self::row_to_channel(row),
+            )?
+            .into_iter()
+            .next()
+            .ok_or_else(|| DatabaseError::NotFound(format!("Channel {} not found", id)))
     }
 
-    pub fn get_by_identifier(&self, user_id: Uuid, identifier: &str) -> Result<Option<Channel>, DatabaseError> {
+    pub fn get_by_identifier(
+        &self,
+        user_id: Uuid,
+        identifier: &str,
+    ) -> Result<Option<Channel>, DatabaseError> {
         let channels = self.db.query(
             "SELECT id, user_id, channel_type, channel_name, channel_identifier, status,
              metadata, config, last_message_at, created_at, updated_at 
@@ -58,7 +63,7 @@ impl ChannelRepository {
             &[&user_id.to_string(), &identifier.to_string()],
             |row| Self::row_to_channel(row),
         )?;
-        
+
         Ok(channels.into_iter().next())
     }
 
@@ -79,9 +84,12 @@ impl ChannelRepository {
                 &channel.base.id.to_string(),
             ],
         )?;
-        
+
         if rows == 0 {
-            return Err(DatabaseError::NotFound(format!("Channel {} not found", channel.base.id)));
+            return Err(DatabaseError::NotFound(format!(
+                "Channel {} not found",
+                channel.base.id
+            )));
         }
         Ok(())
     }
@@ -96,18 +104,27 @@ impl ChannelRepository {
         )
     }
 
-    pub fn list_by_type(&self, user_id: Uuid, channel_type: ChannelType) -> Result<Vec<Channel>, DatabaseError> {
+    pub fn list_by_type(
+        &self,
+        user_id: Uuid,
+        channel_type: ChannelType,
+    ) -> Result<Vec<Channel>, DatabaseError> {
         self.db.query(
             "SELECT id, user_id, channel_type, channel_name, channel_identifier, status,
              metadata, config, last_message_at, created_at, updated_at 
              FROM channels WHERE user_id = ? AND channel_type = ? ORDER BY created_at DESC",
-            &[&user_id.to_string(), &format!("{:?}", channel_type).to_lowercase()],
+            &[
+                &user_id.to_string(),
+                &format!("{:?}", channel_type).to_lowercase(),
+            ],
             |row| Self::row_to_channel(row),
         )
     }
 
     pub fn delete(&self, id: Uuid) -> Result<(), DatabaseError> {
-        let rows = self.db.execute("DELETE FROM channels WHERE id = ?", &[&id.to_string()])?;
+        let rows = self
+            .db
+            .execute("DELETE FROM channels WHERE id = ?", &[&id.to_string()])?;
         if rows == 0 {
             return Err(DatabaseError::NotFound(format!("Channel {} not found", id)));
         }
@@ -160,7 +177,11 @@ impl ChannelRepository {
             },
             metadata: serde_json::from_str(&metadata_str).unwrap_or(serde_json::json!({})),
             config: serde_json::from_str(&config_str).unwrap_or(serde_json::json!({})),
-            last_message_at: last_message_at_str.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
+            last_message_at: last_message_at_str.and_then(|s| {
+                DateTime::parse_from_rfc3339(&s)
+                    .ok()
+                    .map(|dt| dt.with_timezone(&Utc))
+            }),
         })
     }
 }
